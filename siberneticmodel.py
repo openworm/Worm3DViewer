@@ -169,11 +169,11 @@ conn.plot(
 
 
 if __name__ == "__main__":
-    pl = pv.Plotter()
+    plotter = pv.Plotter()
 
-    add_sibernetic_model(pl)
-    pl.set_background("white")
-    pl.add_axes()
+    add_sibernetic_model(plotter)
+    plotter.set_background("white")
+    plotter.add_axes()
 
     if "-nogui" not in sys.argv:
-        pl.show()
+        plotter.show()
