@@ -43,9 +43,9 @@ plotter.add_axes()
 print("Created the scene...")
 
 if st_mode:
-    ## 
+    ##
     if True:
-        print('Pass a key to avoid re-rendering at each page change')
+        print("Pass a key to avoid re-rendering at each page change")
         from stpyvista import stpyvista
 
         stpyvista(plotter, key="pv_cube")

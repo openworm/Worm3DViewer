@@ -168,7 +168,11 @@ if __name__ == "__main__":
 
     from neuromlmodel import add_neuroml_model
 
-    add_neuroml_model(pl)
+    from siberneticmodel import add_sibernetic_model
+
+    add_neuroml_model(pl, somas_only=True)
+    add_sibernetic_model(pl)
+
     pl.set_background("white")
     pl.add_axes()
 
