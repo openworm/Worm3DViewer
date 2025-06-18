@@ -24,16 +24,14 @@ plotter = pv.Plotter(window_size=[800, 600])
 
 print("Read objs...")
 
+plotter = pv.Plotter()
+
+from neuromlmodel import add_neuroml_model
+
+add_neuroml_model(plotter)
+plotter.set_background("white")
 plotter.add_axes()
-plotter.enable_mesh_picking(show_message=True)
 
-sphere = pv.Sphere(end_theta=90)
-plotter.add_mesh(sphere)
-
-## Final touches
-plotter.view_isometric()
-# plotter.add_scalar_bar()
-plotter.background_color = "white"
 
 print("Created the scene...")
 
