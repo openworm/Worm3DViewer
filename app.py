@@ -14,6 +14,7 @@ if st_mode:
     from stpyvista.utils import start_xvfb
 
     if "IS_XVFB_RUNNING" not in st.session_state:
+        print("Starting XVFB...")
         start_xvfb()
         st.session_state.IS_XVFB_RUNNING = True
 
@@ -31,7 +32,7 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
-# add_neuroml_model(plotter, somas_only=True)
+add_neuroml_model(plotter, somas_only=True)
 
 sphere = pv.Sphere(end_theta=90)
 plotter.add_mesh(sphere)
@@ -42,8 +43,9 @@ plotter.add_axes()
 print("Created the scene...")
 
 if st_mode:
-    ## Pass a key to avoid re-rendering at each page change
+    ## 
     if True:
+        print('Pass a key to avoid re-rendering at each page change')
         from stpyvista import stpyvista
 
         stpyvista(plotter, key="pv_cube")
