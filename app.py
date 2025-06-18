@@ -39,7 +39,7 @@ print("Created the scene...")
 
 if st_mode:
     ## Pass a key to avoid re-rendering at each page change
-    if False:
+    if True:
         from stpyvista import stpyvista
 
         stpyvista(plotter, key="pv_cube")
