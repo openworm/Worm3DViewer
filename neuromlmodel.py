@@ -7,8 +7,13 @@ from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
 
-def add_neuroml_model(pl, somas_only=False):
+def add_neuroml_model(plotter, somas_only=False):
     filename = "c302_D_Full.net.nml"
+    filename = "c302_D_Pharyngeal.net.nml"
+    filename = "c302_A_Full.net.nml"
+
+    """sphere = pv.Sphere(radius=5, center=(10, 10, 10))
+    plotter.add_mesh(sphere, color="red")"""
 
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
 
@@ -30,7 +35,7 @@ def add_neuroml_model(pl, somas_only=False):
 
         print("Pop: %s has %i of component %s" % (pop_id, len(pos_pop), cell.id))
 
-        radius = pop_id_vs_radii[pop_id] if pop_id in pop_id_vs_radii else 10
+        radius = pop_id_vs_radii[pop_id] if pop_id in pop_id_vs_radii else 0.5
         color = pop_id_vs_color[pop_id] if pop_id in pop_id_vs_color else "r"
 
         if type(cell) is Cell:
@@ -52,7 +57,7 @@ def add_neuroml_model(pl, somas_only=False):
                         radius=p.diameter * factor / 2,
                     )
 
-                    pl.add_mesh(seg_mesh, color=color)
+                    plotter.add_mesh(seg_mesh, color=color)
                 else:
                     seg_mesh = pv.Tube(
                         pointa=(p.x * factor, p.z * factor, -1 * p.y * factor),
@@ -71,20 +76,27 @@ def add_neuroml_model(pl, somas_only=False):
                 cell_mesh = cell_meshes.copy()
                 for i in range(len(cell_mesh)):
                     cell_mesh[i].translate(pp, inplace=True)
-                pl.add_mesh(cell_mesh, color=color, smooth_shading=True)
+                plotter.add_mesh(cell_mesh, color=color, smooth_shading=True)
 
         else:
-            sphere = pv.Sphere(center=(pos[0], pos[1], pos[2]), radius=radius)
+            while pos_pop:
+                cell_index, pos = pos_pop.popitem()
+                pp = [pos[0] * factor, pos[2] * factor, -1 * pos[1] * factor]
+                print(
+                    "Plotting only sphere %s(%i) at %s, %s"
+                    % (cell.id, cell_index, pos, pp)
+                )
+                sphere = pv.Sphere(center=(pp[0], pp[1], pp[2]), radius=radius)
 
-            pl.add_mesh(sphere, color=color)
+                plotter.add_mesh(sphere, color=color)
 
 
 if __name__ == "__main__":
-    pl = pv.Plotter()
+    plotter = pv.Plotter()
 
-    add_neuroml_model(pl, somas_only=True)
-    pl.set_background("white")
-    pl.add_axes()
+    add_neuroml_model(plotter, somas_only=True)
+    plotter.set_background("white")
+    plotter.add_axes()
 
     if "-nogui" not in sys.argv:
-        pl.show()
+        plotter.show()
