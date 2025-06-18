@@ -4,7 +4,7 @@ from siberneticmodel import add_sibernetic_model  # noqa: F401
 import pyvista as pv
 import sys
 
-version = "v0.5"
+version = "v0.0.7"
 
 st_mode = "-gui" not in sys.argv
 
@@ -37,14 +37,14 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
+add_neuroml_model(plotter, somas_only=True)
 add_sibernetic_model(plotter)
 
-sphere = pv.Sphere(end_theta=60, radius=10, center=(0, 0, 0))
+sphere = pv.Sphere(end_theta=30, radius=10, center=(0, 0, 0))
 plotter.add_mesh(sphere)
 plotter.set_background("white")
 plotter.add_axes()
 
-add_neuroml_model(plotter, somas_only=True)
 
 plotter.set_viewup([0, 10, 0])
 
