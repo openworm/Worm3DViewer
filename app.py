@@ -1,3 +1,4 @@
+from neuromlmodel import add_neuroml_model
 import pyvista as pv
 import sys
 
@@ -26,7 +27,6 @@ print("Read objs...")
 
 plotter = pv.Plotter()
 
-from neuromlmodel import add_neuroml_model
 
 add_neuroml_model(plotter)
 plotter.set_background("white")
