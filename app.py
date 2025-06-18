@@ -28,7 +28,7 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
-add_neuroml_model(plotter)
+add_neuroml_model(plotter, somas_only=True)
 plotter.set_background("white")
 plotter.add_axes()
 

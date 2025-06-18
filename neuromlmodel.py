@@ -7,7 +7,7 @@ from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
 
-def add_neuroml_model(pl):
+def add_neuroml_model(pl, somas_only=False):
     filename = "c302_D_Full.net.nml"
 
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
@@ -43,6 +43,8 @@ def add_neuroml_model(pl):
                 d = seg.distal
                 width = (p.diameter + d.diameter) / 4
                 # print("Creating %s" % (seg))
+                if somas_only and seg.id != 0:
+                    continue
 
                 if cell.get_segment_length(seg.id) == 0:
                     seg_mesh = pv.Sphere(
@@ -80,7 +82,7 @@ def add_neuroml_model(pl):
 if __name__ == "__main__":
     pl = pv.Plotter()
 
-    add_neuroml_model(pl)
+    add_neuroml_model(pl, somas_only=True)
     pl.set_background("white")
     pl.add_axes()
 
