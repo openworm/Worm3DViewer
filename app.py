@@ -18,9 +18,9 @@ if st_mode:
         start_xvfb()
         st.session_state.IS_XVFB_RUNNING = True
 
-    st.title("OpenWorm 3D Viewer...")
+    st.title("OpenWorm 3D Viewer.")
     st.markdown(
-        "This is a 3D viewer for a number of OpenWorm _C. elegans_ models and datasets. It uses PyVista for rendering."
+        "This is a 3D viewer for a number of OpenWorm _C. elegans_ models and datasets. It uses PyVista for rendering..."
     )
 
 
@@ -32,12 +32,14 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
-add_neuroml_model(plotter, somas_only=True)
+#add_neuroml_model(plotter, somas_only=True)
 
 sphere = pv.Sphere(end_theta=90)
 plotter.add_mesh(sphere)
 plotter.set_background("white")
 plotter.add_axes()
+
+plotter.set_viewup([0, 10, 0])
 
 
 print("Created the scene...")
