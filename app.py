@@ -17,7 +17,7 @@ if st_mode:
         start_xvfb()
         st.session_state.IS_XVFB_RUNNING = True
 
-    st.title("OpenWorm 3D Viewer")
+    st.title("OpenWorm 3D Viewer...")
 
 
 ## Initialize a plotter object
@@ -28,7 +28,10 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
-add_neuroml_model(plotter, somas_only=True)
+#add_neuroml_model(plotter, somas_only=True)
+
+sphere = pv.Sphere(end_theta=90)
+plotter.add_mesh(sphere)
 plotter.set_background("white")
 plotter.add_axes()
 
