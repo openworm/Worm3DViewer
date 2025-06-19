@@ -7,11 +7,9 @@ from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
 
-def add_neuroml_model(plotter, somas_only=False):
-    filename = "c302_D_Full.net.nml"
-    filename = "c302_D_Pharyngeal.net.nml"
-    filename = "c302_A_Full.net.nml"
-
+def add_neuroml_model(
+    plotter, filename="c302_A_Full.net.nml", somas_only=False, factor=0.2
+):
     """sphere = pv.Sphere(radius=5, center=(10, 10, 10))
     plotter.add_mesh(sphere, color="red")"""
 
@@ -26,8 +24,6 @@ def add_neuroml_model(plotter, somas_only=False):
         pop_id_vs_color,
         pop_id_vs_radii,
     ) = extract_position_info(nml_doc, False)
-
-    factor = 0.2
 
     while pop_id_vs_cell:
         pop_id, cell = pop_id_vs_cell.popitem()
@@ -83,8 +79,8 @@ def add_neuroml_model(plotter, somas_only=False):
                 cell_index, pos = pos_pop.popitem()
                 pp = [pos[0] * factor, pos[2] * factor, -1 * pos[1] * factor]
                 print(
-                    "Plotting only sphere %s(%i) at %s, %s"
-                    % (cell.id, cell_index, pos, pp)
+                    "Plotting only sphere (radius: %s) %s(%i) at %s, %s"
+                    % (radius, cell.id, cell_index, pos, pp)
                 )
                 sphere = pv.Sphere(center=(pp[0], pp[1], pp[2]), radius=radius)
 
@@ -94,7 +90,7 @@ def add_neuroml_model(plotter, somas_only=False):
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    add_neuroml_model(plotter, somas_only=True)
+    add_neuroml_model(plotter, "NeuroPAL_All_straightened.net.nml", somas_only=True)
     plotter.set_background("white")
     plotter.add_axes()
 
