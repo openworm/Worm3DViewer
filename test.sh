@@ -5,4 +5,5 @@ ruff check *.py
 
 python neuromlmodel.py -nogui 
 python siberneticmodel.py -nogui 
+python virtualworm.py -nogui 
 python load.py -nogui 

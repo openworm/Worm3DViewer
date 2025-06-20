@@ -166,10 +166,11 @@ conn.plot(
 if __name__ == "__main__":
     pl = pv.Plotter()
 
+    from virtualworm import add_virtualworm_muscles
     from neuromlmodel import add_neuroml_model
-
     from siberneticmodel import add_sibernetic_model
 
+    add_virtualworm_muscles(pl)
     add_neuroml_model(pl, somas_only=True)
     add_sibernetic_model(pl)
 

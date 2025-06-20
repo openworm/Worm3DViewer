@@ -1,5 +1,6 @@
 from neuromlmodel import add_neuroml_model  # noqa: F401
 from siberneticmodel import add_sibernetic_model  # noqa: F401
+from virtualworm import add_virtualworm_muscles  # noqa: F401
 
 import pyvista as pv
 import sys
@@ -36,14 +37,9 @@ print("Read objs...")
 
 plotter = pv.Plotter()
 
-
 add_neuroml_model(plotter, somas_only=True)
 add_sibernetic_model(plotter)
-
-sphere = pv.Sphere(end_theta=30, radius=10, center=(0, 0, 0))
-plotter.add_mesh(sphere)
-plotter.set_background("white")
-plotter.add_axes()
+add_virtualworm_muscles(plotter)
 
 
 plotter.set_viewup([0, 10, 0])

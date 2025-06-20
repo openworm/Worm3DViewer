@@ -89,8 +89,6 @@ def add_sibernetic_model(pl):
 
     print("Num of time points found: %i" % len(all_points))
 
-    pl.set_background("lightgrey")
-
     create_mesh(0)
 
     max_time = len(all_points) - 1
@@ -172,7 +170,7 @@ if __name__ == "__main__":
     plotter = pv.Plotter()
 
     add_sibernetic_model(plotter)
-    plotter.set_background("white")
+    plotter.set_background("lightgrey")
     plotter.add_axes()
 
     if "-nogui" not in sys.argv:
