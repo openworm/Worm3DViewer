@@ -1,6 +1,7 @@
 from neuromlmodel import add_neuroml_model  # noqa: F401
 from siberneticmodel import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
+from virtualworm import add_virtualworm_neurons  # noqa: F401
 
 import pyvista as pv
 import sys
@@ -37,12 +38,16 @@ print("Read objs...")
 
 plotter = pv.Plotter()
 
-add_neuroml_model(plotter, somas_only=True)
-add_sibernetic_model(plotter)
+
 add_virtualworm_muscles(plotter)
+# add_virtualworm_neurons(plotter)
+add_neuroml_model(plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=True)
+add_sibernetic_model(plotter)
 
 
 plotter.set_viewup([0, 10, 0])
+# plotter.remove_scalar_bar("RegionId")
+# plotter.remove_scalar_bar("types")
 
 
 print("Created the scene...")
