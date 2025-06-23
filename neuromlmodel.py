@@ -82,7 +82,7 @@ def add_neuroml_model(
                     "Plotting only sphere (radius: %s) %s(%i) at %s, %s"
                     % (radius, cell.id, cell_index, pos, pp)
                 )
-                sphere = pv.Sphere(center=(pp[0], pp[1], pp[2]), radius=radius * factor)
+                sphere = pv.Sphere(center=(pp[0], pp[1], pp[2]), radius=radius)
 
                 plotter.add_mesh(sphere, color=color)
 

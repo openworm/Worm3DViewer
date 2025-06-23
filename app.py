@@ -6,7 +6,7 @@ from virtualworm import add_virtualworm_neurons  # noqa: F401
 import pyvista as pv
 import sys
 
-version = "v0.0.7"
+version = "v0.0.8"
 
 st_mode = "-gui" not in sys.argv
 
@@ -39,15 +39,15 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 
-add_virtualworm_muscles(plotter)
-# add_virtualworm_neurons(plotter)
-add_neuroml_model(plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=True)
-add_sibernetic_model(plotter)
+spacing = 50
+
+add_sibernetic_model(plotter, swap_y_z=True, offset=spacing)
+add_neuroml_model(plotter, "NeuroML2/c302_A_Full.net.nml", somas_only=False)  # at 0...
+add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
+# add_virtualworm_neurons(plotter, translate=(-1.8*spacing, 0, 0))
 
 
 plotter.set_viewup([0, 10, 0])
-# plotter.remove_scalar_bar("RegionId")
-# plotter.remove_scalar_bar("types")
 
 
 print("Created the scene...")

@@ -11,12 +11,12 @@ colours = {1.1: "blue", 2.2: "turquoise"}
 
 plotter = None
 
-spacing_ = 50
+offset_ = 50
 
 
-def add_sibernetic_model(pl, swap_y_z=False, spacing=50):
-    global all_points, all_point_types, last_mesh, plotter, spacing_
-    spacing_ = spacing
+def add_sibernetic_model(pl, swap_y_z=False, offset=50):
+    global all_points, all_point_types, last_mesh, plotter, offset_
+    offset_ = offset
     plotter = pl
 
     points = []
@@ -96,7 +96,7 @@ def add_sibernetic_model(pl, swap_y_z=False, spacing=50):
     plotter.remove_scalar_bar("types")
 
     max_time = len(all_points) - 1
-    pl.add_slider_widget(create_mesh, rng=[0, max_time], value=0, title="Time point")
+    pl.add_slider_widget(create_mesh, rng=[0, max_time], value=30, title="Time point")
     pl.add_timer_event(max_steps=5, duration=2, callback=create_mesh)
 
 
@@ -105,7 +105,7 @@ def create_mesh(step):
 
     step_count = step
     value = step_count
-    global all_points, all_point_types, last_mesh, plotter, spacing_
+    global all_points, all_point_types, last_mesh, plotter, offset_
 
     index = int(value)
 
@@ -128,7 +128,7 @@ def create_mesh(step):
         )
     else:
         last_mesh.points = curr_points
-        last_mesh.translate((spacing_, -50, -100), inplace=True)
+        last_mesh.translate((offset_, -50, -100), inplace=True)
 
     plotter.render()
 
