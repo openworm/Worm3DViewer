@@ -1,0 +1,7 @@
+# Worm3DViewer Requirements
+pyvista
+stpyvista
+
+libneuroml
+pyneuroml
+ruff 

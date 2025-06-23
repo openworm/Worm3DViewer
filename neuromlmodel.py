@@ -90,7 +90,7 @@ def add_neuroml_model(
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    add_neuroml_model(plotter, "NeuroPAL_All_straightened.net.nml", somas_only=True)
+    add_neuroml_model(plotter, "c302_D_Full.net.nml", somas_only=False)
     plotter.set_background("white")
     plotter.add_axes()
 
