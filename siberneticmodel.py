@@ -1,5 +1,4 @@
 import pyvista as pv
-
 import sys
 
 last_mesh = None
@@ -12,10 +11,15 @@ colours = {1.1: "blue", 2.2: "turquoise"}
 
 plotter = None
 
+spacing_ = 50
 
-def add_sibernetic_model(pl):
+
+def add_sibernetic_model(pl, swap_y_z=False, spacing=50):
+    global all_points, all_point_types, last_mesh, plotter, spacing_
+    spacing_ = spacing
+    plotter = pl
+
     points = []
-
     types = []
 
     file = "pressure_buffer.txt"
@@ -23,12 +27,7 @@ def add_sibernetic_model(pl):
 
     line_count = 0
     pcount = 0
-
-    global all_points, all_point_types, last_mesh, plotter
-    plotter = pl
-
     time_count = 0
-
     logStep = None
 
     include_boundary = False
@@ -51,7 +50,10 @@ def add_sibernetic_model(pl):
             type = float(ws[3])
 
             if not (type == 3 and not include_boundary):
-                points.append([float(ws[0]), float(ws[1]), float(ws[2])])
+                if swap_y_z:
+                    points.append([float(ws[1]), 1 * float(ws[0]), float(ws[2])])
+                else:
+                    points.append([float(ws[0]), float(ws[1]), float(ws[2])])
                 types.append(type)
 
         if logStep is not None:
@@ -91,10 +93,10 @@ def add_sibernetic_model(pl):
 
     create_mesh(0)
 
+    plotter.remove_scalar_bar("types")
+
     max_time = len(all_points) - 1
-    pl.add_slider_widget(
-        create_mesh, rng=[0, max_time], value=max_time, title="Time point"
-    )
+    pl.add_slider_widget(create_mesh, rng=[0, max_time], value=0, title="Time point")
     pl.add_timer_event(max_steps=5, duration=2, callback=create_mesh)
 
 
@@ -103,13 +105,14 @@ def create_mesh(step):
 
     step_count = step
     value = step_count
-    global all_points, all_point_types, last_mesh, plotter
+    global all_points, all_point_types, last_mesh, plotter, spacing_
 
     index = int(value)
 
     print("Changing to time point: %s (%s) " % (index, value))
     curr_points = all_points[index]
     curr_types = all_point_types[index]
+
     if last_mesh is None:
         last_mesh = pv.PolyData(curr_points)
         last_mesh["types"] = curr_types
@@ -125,7 +128,7 @@ def create_mesh(step):
         )
     else:
         last_mesh.points = curr_points
-        last_mesh.translate((0, -00, -100), inplace=True)
+        last_mesh.translate((spacing_, -50, -100), inplace=True)
 
     plotter.render()
 
@@ -134,44 +137,13 @@ def create_mesh(step):
     return
 
 
-'''
-mesh = pv.read("bwm.obj")
-mesh.scale(20, inplace=True)
-mesh.translate((-40, 0, 0), inplace=True)
-
-pl.add_mesh(mesh, smooth_shading=True, color="green")
-
-mesh2 = pv.read("neurons.obj")
-mesh2.scale(20, inplace=True)
-mesh2.translate((-80, 0, 0), inplace=True)
-
-pl.add_mesh(mesh2, smooth_shading=True, color="orange")
-"""
-conn = mesh2.connectivity('all')
-print(conn)
-# Format scalar bar text for integer values.
-scalar_bar_args = dict(
-    fmt='%.f',
-)
-
-cpos = [(10.5, 12.2, 18.3), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
-
-conn.plot(
-    categories=True,
-    cmap='jet',
-    scalar_bar_args=scalar_bar_args,
-    cpos=cpos,
-)"""
-
-'''
-
-
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    add_sibernetic_model(plotter)
+    add_sibernetic_model(plotter, swap_y_z=True)
     plotter.set_background("lightgrey")
     plotter.add_axes()
+    # plotter.set_viewup([0, 0, 10])
 
     if "-nogui" not in sys.argv:
         plotter.show()

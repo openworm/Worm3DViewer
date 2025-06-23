@@ -31,6 +31,7 @@ def add_virtualworm_neurons(plotter, scale=20, translate=(-80, 0, 0)):
         smooth_shading=True,
         cmap="jet",
     )
+    plotter.remove_scalar_bar("RegionId")
 
 
 if __name__ == "__main__":
