@@ -55,6 +55,7 @@ Parameters and setting used to generate this network:
         BioParameter: unphysiological_offset_current_dur = 900 ms (SRC: Testing Full net, certainty 0)
 
 </notes>
+    <include href="cell_C.xml"/>
     <include href="cells/ADAL_D.cell.nml"/>
     <include href="cells/ADAR_D.cell.nml"/>
     <include href="cells/ADEL_D.cell.nml"/>

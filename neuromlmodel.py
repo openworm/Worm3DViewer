@@ -8,7 +8,7 @@ from neuroml import Cell
 
 
 def add_neuroml_model(
-    plotter, filename="c302_A_Full.net.nml", somas_only=False, factor=0.2
+    plotter, filename="NeuroML2/c302_A_Full.net.nml", somas_only=False, factor=0.2
 ):
     """sphere = pv.Sphere(radius=5, center=(10, 10, 10))
     plotter.add_mesh(sphere, color="red")"""
@@ -90,7 +90,7 @@ def add_neuroml_model(
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    add_neuroml_model(plotter, "c302_D_Full.net.nml", somas_only=False)
+    add_neuroml_model(plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=False)
     plotter.set_background("white")
     plotter.add_axes()
 

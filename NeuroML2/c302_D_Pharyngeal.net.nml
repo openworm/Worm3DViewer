@@ -55,6 +55,7 @@ Parameters and setting used to generate this network:
         BioParameter: unphysiological_offset_current_dur = 200ms (SRC: Testing Pharyngeal, certainty 0)
 
 </notes>
+    <include href="cell_C.xml"/>
     <include href="cells/I1L_D.cell.nml"/>
     <include href="cells/I1R_D.cell.nml"/>
     <include href="cells/I2L_D.cell.nml"/>
