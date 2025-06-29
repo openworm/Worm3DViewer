@@ -1,5 +1,6 @@
 import pyvista as pv
 import sys
+import os
 
 last_mesh = None
 
@@ -14,16 +15,15 @@ plotter = None
 offset_ = 50
 
 
-def add_sibernetic_model(pl, swap_y_z=False, offset=50):
+def add_sibernetic_model(
+    pl, position_file="position_buffer.txt", swap_y_z=False, offset=50
+):
     global all_points, all_point_types, last_mesh, plotter, offset_
     offset_ = offset
     plotter = pl
 
     points = []
     types = []
-
-    file = "pressure_buffer.txt"
-    file = "position_buffer.txt"
 
     line_count = 0
     pcount = 0
@@ -32,7 +32,7 @@ def add_sibernetic_model(pl, swap_y_z=False, offset=50):
 
     include_boundary = False
 
-    for line in open(file):
+    for line in open(position_file):
         ws = line.split()
         # print(ws)
         if line_count == 6:
@@ -139,6 +139,11 @@ def create_mesh(step):
 
 if __name__ == "__main__":
     plotter = pv.Plotter()
+
+    position_file = "position_buffer.txt"
+
+    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+        position_file = sys.argv[1]
 
     add_sibernetic_model(plotter, swap_y_z=True)
     plotter.set_background("lightgrey")
