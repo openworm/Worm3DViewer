@@ -24,7 +24,7 @@ color_range = {1.1: "blue", 2.2: "turquoise"}
 
 def add_sibernetic_model(
     pl,
-    position_file="position_buffer.txt",
+    position_file="Sibernetic/position_buffer.txt",
     swap_y_z=False,
     offset=50,
     include_boundary=False,
@@ -176,7 +176,8 @@ def create_mesh(step):
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    position_file = "position_buffer.txt"
+    position_file = "Sibernetic/position_buffer.txt"
+
     include_boundary = False
 
     if "-b" in sys.argv:
