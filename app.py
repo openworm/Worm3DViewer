@@ -1,5 +1,5 @@
 from neuromlmodel import add_neuroml_model  # noqa: F401
-from siberneticmodel import add_sibernetic_model  # noqa: F401
+from SiberneticReplay import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
 from virtualworm import add_virtualworm_neurons  # noqa: F401
 
