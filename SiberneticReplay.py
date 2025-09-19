@@ -24,7 +24,7 @@ all_point_types = []
 
 
 plotter = None
-offset_ = 0
+offset3d_ = (0, 0, 0)
 slider = None
 
 show_boundary = False
@@ -59,12 +59,19 @@ def add_sibernetic_model(
     position_file="Sibernetic/position_buffer.txt",
     report_file=None,
     swap_y_z=False,
-    offset=0,
+    offset3d=(0, 0, 0),
     include_boundary=False,
 ):
-    global all_points, all_point_types, last_meshes, plotter, offset_, slider, show_boundary
+    global \
+        all_points, \
+        all_point_types, \
+        last_meshes, \
+        plotter, \
+        offset3d_, \
+        slider, \
+        show_boundary
 
-    offset_ = offset
+    offset3d_ = offset3d
     plotter = pl
     show_boundary = include_boundary
 
@@ -226,7 +233,7 @@ def play_animation(play):
 def create_mesh(step):
     step_count = step
     value = step_count
-    global all_points, last_meshes, plotter, offset_, replaying, show_boundary
+    global all_points, last_meshes, plotter, offset3d_, replaying, show_boundary
 
     index = int(value)
     if index >= len(all_points):
@@ -257,7 +264,7 @@ def create_mesh(step):
             continue
         if type_ not in last_meshes:
             last_meshes[type_] = pv.PolyData(curr_points)
-            last_meshes[type_].translate((0, 0, 0), inplace=True)
+            last_meshes[type_].translate(offset3d_, inplace=True)
 
             # last_actor =
             plotter.add_mesh(
@@ -269,7 +276,9 @@ def create_mesh(step):
         else:
             if not is_boundary:
                 last_meshes[type_].points = curr_points
-                last_meshes[type_].translate((offset_, 0, 0), inplace=True)
+                last_meshes[type_].translate(
+                    (offset3d_[0], offset3d_[1], offset3d_[2]), inplace=True
+                )
             else:
                 print("Boundary points not translated")
 
