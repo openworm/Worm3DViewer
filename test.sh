@@ -11,7 +11,7 @@ python neuromlmodel.py -nogui
 python neuropal.py -nogui 
 
 # Test the Sibernetic loader without showing the GUI
-python siberneticmodel.py Sibernetic/impermeability.txt -b -nogui 
+python SiberneticReplay.py Sibernetic/impermeability.txt -b -nogui 
 
 # Test the VirtualWorm loader without showing the GUI
 python virtualworm.py -nogui 

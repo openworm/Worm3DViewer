@@ -2,7 +2,7 @@ import pyvista as pv
 import sys
 
 from neuromlmodel import add_neuroml_model  # noqa: F401
-from siberneticmodel import add_sibernetic_model  # noqa: F401
+from SiberneticReplay import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
 from virtualworm import add_virtualworm_neurons  # noqa: F401
 
@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     spacing = 50
 
-    add_sibernetic_model(plotter, swap_y_z=True, offset=spacing)
+    add_sibernetic_model(plotter, swap_y_z=True, offset3d=(spacing, -50, -100))
     add_neuroml_model(
         plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=False
     )  # at 0...

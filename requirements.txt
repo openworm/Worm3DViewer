@@ -1,4 +1,7 @@
-# Worm3DViewer Requirements
+altair
+pandas
+streamlit
+vtk
 pyvista
 stpyvista
 
