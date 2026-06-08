@@ -9,28 +9,161 @@ import pyvista as pv
 import sys
 import os
 import time
-import json
 import numpy as np
 import matplotlib.pyplot as plt
 
+from SibSimulation import SibSimulation
+
+from enum import Enum
 
 last_meshes = {}
 
-replay_speed = 0.05  # seconds between frames
+replay_speed = 0.02  # seconds between frames
 replaying = False
 
-all_points = []
-all_point_types = []
+sim_positions = None
 
 plotter = None
 offset3d_ = (0, 0, 0)
 slider = None
 
 show_boundary = False
-
 max_time = None
 
 verbose = False
+
+downsample = 1  # only load every nth time point of 3d positions
+
+
+def print_(msg):
+    prefix = "SibReplay: "
+    print(prefix + str(msg).replace("\n", "\n" + prefix))
+
+
+class State(Enum):
+    PAUSED = "Paused"
+    RUNNING = "Running"
+
+
+class ReplayController:
+    slider_view = None
+
+    def __init__(self, times=None, show_vtk_mesh=False):
+        self.times = list(times)
+        self.state = State.PAUSED
+        self.current_time_index = 0
+        self.show_vtk_mesh = show_vtk_mesh
+        self.vtk_actor = None
+
+    def play(self, should_play, step=1):
+        if should_play:
+            print_(" > Starting replay playback.")
+
+            if self.current_time_index == len(self.times) - 1:
+                print_(" > Replay at end of time, resetting to start.")
+                self.set_to_time(0)
+
+            self.state = State.RUNNING
+            while self.state == State.RUNNING and self.current_time_index + 1 < len(
+                self.times
+            ):
+                self.current_time_index = min(
+                    self.current_time_index + step, len(self.times) - 1
+                )
+                print_(f" > Advancing to time index: {self.current_time_index}")
+                self.render_all()
+                time.sleep(replay_speed)
+            print_(" > Replay playback finished or paused.")
+            self.state = State.PAUSED
+
+        else:
+            print_(" > Pausing replay playback.")
+            self.state = State.PAUSED
+
+    def step_forward(self):
+        if self.state == State.RUNNING:
+            self.state = State.PAUSED
+
+        if self.current_time_index + 1 >= len(self.times):
+            print_(" > Replay at end of time, cannot step forward.")
+            return
+
+        self.current_time_index += 1
+        print_(f" > Stepping forward one time step to index: {self.current_time_index}")
+        self.render_all()
+
+    def step_backward(self):
+        if self.state == State.RUNNING:
+            self.state = State.PAUSED
+
+        if self.current_time_index == 0:
+            print_(" > Replay at start of time, cannot step backward.")
+            return
+
+        self.current_time_index -= 1
+        print_(
+            f" > Stepping backward one time step to index: {self.current_time_index}"
+        )
+        self.render_all()
+
+    def set_to_time(self, time_value):
+        if time_value == 0:
+            closest_index = 0
+            closest_time = 0
+        else:
+            if time_value in self.times:
+                closest_index = self.times.index(time_value)
+                closest_time = self.times[closest_index]
+                print_(
+                    f" > .Finding closest time to {time_value}, got index: {closest_index}"
+                )
+            else:
+                closest = min(self.times, key=lambda x: abs(x - time_value))
+                closest_index = self.times.index(closest)
+                print_(
+                    f" > Finding closest time to {time_value}, got index: {closest_index} of {len(self.times)} times {self.times[0]}-{self.times[-1]}"
+                )
+                closest_time = self.times[closest_index]
+
+        self.current_time_index = closest_index
+
+        print_(
+            " > Replay requested to be set to: %s; being set to time value %s (index: %d)."
+            % (time_value, self.current_time_index, closest_time)
+        )
+        self.state = State.PAUSED
+        self.render_all()
+
+    def render_all(self):
+        print_(
+            "\n > Rendering replay at time index: %d (time: %s)"
+            % (self.current_time_index, self.times[self.current_time_index])
+        )
+        if self.slider_view is not None:
+            self.slider_view.GetSliderRepresentation().SetValue(
+                self.times[self.current_time_index]
+            )
+        create_mesh(self.current_time_index)
+
+        if len(sim_positions.vtp_files) > 0 and self.show_vtk_mesh:
+            if self.vtk_actor is not None:
+                plotter.remove_actor(self.vtk_actor)
+
+            vtk_mesh = pv.read(sim_positions.vtp_files[self.current_time_index])
+
+            self.vtk_actor = plotter.add_mesh(vtk_mesh, color="grey", style="wireframe")
+
+        plotter.render()
+        try:
+            plotter.update()
+        except Exception:
+            pass  # plotter may not be initialised yet
+
+    def get_state(self):
+        return f" > Replay state: {self.state}, current time index: {self.current_time_index}, so time is {self.times[self.current_time_index]} of max time {self.times[-1]} ({len(self.times)} time points)."
+
+
+replay_controller = None
 
 
 def get_color_info_for_type(type_):
@@ -42,7 +175,7 @@ def get_color_info_for_type(type_):
     if type_ == 1.1:
         return "cyan", "liquid 1", 2
     elif type_ == 1.2:
-        return "red", "liquid 2", 10
+        return "darkturquoise", "liquid 2", 3
 
     elif type_ == 2.1:
         return "pink", "elastic 1", 5
@@ -61,6 +194,100 @@ def get_color_info_for_type(type_):
         return "orange", "unknown", 5
 
 
+def add_muscle_activation_chart(sim_dir, pl, duration=None):
+
+    muscle_activation_file = os.path.join(sim_dir, "muscles_activity_buffer.txt")
+    print_(f"Loading muscle activation file from: {muscle_activation_file}")
+    musc_dat = np.loadtxt(muscle_activation_file, delimiter="\t").T
+
+    if np.sum(musc_dat) == 0:
+        print_("No muscle data, not plotting")
+        return
+
+    # print(musc_dat.shape)
+    # plt.imshow(musc_dat, interpolation="none", aspect="auto", cmap="YlOrRd")
+
+    f_musc, ax_musc = plt.subplots(tight_layout=True)
+
+    im = ax_musc.imshow(musc_dat, interpolation="none", aspect="auto", cmap="YlOrRd")
+    f_musc.canvas.manager.set_window_title("Muscle Activation Heatmap")
+
+    f_musc.colorbar(im)
+
+    if duration is not None:
+        num_ticks = 5
+        ax_musc.set_xticks(np.linspace(0, musc_dat.shape[1], num_ticks))
+        ax_musc.set_xticklabels(np.linspace(0, duration, num_ticks))
+
+        ax_musc.set_xlabel("Time (ms)")
+    else:
+        ax_musc.set_xlabel("Time point")
+
+    _ = ax_musc.set_ylabel("Muscle")
+
+    musc_chart = pv.ChartMPL(f_musc, size=(0.35, 0.35), loc=(0.02, 0.06))
+    musc_chart.title = None
+    musc_chart.border_color = "white"
+    musc_chart.background_color = (1.0, 1.0, 1.0, 0.4)
+
+    pl.add_chart(
+        musc_chart,
+    )
+
+
+def add_body_curvature_chart(sim_dir, pl, duration=None):
+
+    from wcon.generate_wcon import generate_wcon
+
+    sib_position_file = os.path.join(sim_dir, "worm_motion_log.txt")
+    wcon_output_file = "/tmp/worm_motion_log.wcon"
+
+    x, y, z, ts, body_curv_data = generate_wcon(
+        sib_position_file,
+        wcon_file_name=wcon_output_file,
+        rate_to_plot=1,
+        plot=False,
+    )
+
+    if np.sum(x[ts[-1]]) + np.sum(y[ts[-1]]) == 0:
+        print_("No worm body data, not plotting")
+        return
+
+    print_(f"Temporary WCON file (re)generated at: {wcon_output_file}")
+
+    f_curv, ax_curv = plt.subplots(tight_layout=True)
+    im = ax_curv.imshow(
+        body_curv_data.transpose(),
+        interpolation="none",
+        aspect="auto",
+        cmap="bwr",
+        vmin=170,
+        vmax=190,
+    )
+    f_curv.colorbar(im)
+    f_curv.canvas.manager.set_window_title("Body Curvature")
+
+    if duration is not None:
+        ax_curv.set_xlabel("Time (ms)")
+
+        num_ticks = 5
+        ax_curv.set_xticks(np.linspace(0, body_curv_data.shape[0], num_ticks))
+        ax_curv.set_xticklabels(np.linspace(0, duration, num_ticks))
+    else:
+        ax_curv.set_xlabel("Time point")
+
+    _ = ax_curv.set_ylabel("Body curv.")
+    ax_curv.set_in_layout(False)
+
+    curv_chart = pv.ChartMPL(f_curv, size=(0.35, 0.35), loc=(0.62, 0.06))
+    curv_chart.title = None
+    curv_chart.border_color = "white"
+    curv_chart.background_color = (1.0, 1.0, 1.0, 0.4)
+    pl.add_chart(
+        curv_chart,
+    )
+
+
 def add_sibernetic_model(
     pl,
     position_file="Sibernetic/position_buffer.txt",
@@ -70,234 +297,264 @@ def add_sibernetic_model(
     include_boundary=False,
 ):
     global \
-        all_points, \
-        all_point_types, \
+        sim_positions, \
         last_meshes, \
         plotter, \
         offset3d_, \
         slider, \
         show_boundary, \
-        max_time
+        max_time, \
+        replay_controller
 
     offset3d_ = offset3d
     plotter = pl
     show_boundary = include_boundary
 
-    points = {}
-    types = []
-
-    line_count = 0
-    pcount = 0
-    time_count = 0
-    logStep = None
-
-    dt = None
-
-    report_data = None
-    count_point_types = {}
-
-    if report_file is not None:
-        sim_dir = os.path.dirname(os.path.abspath(report_file))
-        report_data = json.load(open(report_file, "r"))
-        print(report_data)
-        position_file = os.path.join(sim_dir, "position_buffer.txt")
-        dt = float(report_data.get("dt").split(" ")[0])
-        duration = float(report_data.get("duration").split(" ")[0])
-        max_time = duration
-        time_points = np.linspace(0, duration, int(duration / dt) + 1)
-        print(
-            "Simulation dt: %s ms, duration: %s ms, times: %s"
-            % (dt, duration, time_points)
-        )
-
-        if "worm" in report_data["configuration"]:
-            muscle_activation_file = os.path.join(
-                sim_dir, "muscles_activity_buffer.txt"
-            )
-            print("Loading muscle activation file from: %s" % muscle_activation_file)
-            musc_dat = np.loadtxt(muscle_activation_file, delimiter="\t").T
-            print(musc_dat)
-            print(musc_dat.shape)
-            # plt.imshow(musc_dat, interpolation="none", aspect="auto", cmap="YlOrRd")
-
-            f, ax = plt.subplots(tight_layout=True)
-            ax.imshow(musc_dat, interpolation="none", aspect="auto", cmap="YlOrRd")
-
-            num_ticks = 5
-            ax.set_xticks(np.linspace(0, musc_dat.shape[1], num_ticks))
-            ax.set_xticklabels(np.linspace(0, duration, num_ticks))
-            # quit()
-
-            # ax.set_ylim([-1, 1])
-            ax.set_xlabel("Time (ms)")
-            _ = ax.set_ylabel("Muscle")
-
-            h_chart = pv.ChartMPL(f, size=(0.35, 0.35), loc=(0.02, 0.06))
-            h_chart.title = None
-            h_chart.border_color = "white"
-            h_chart.show_title = False
-            h_chart.background_color = (1.0, 1.0, 1.0, 0.4)
-            pl.add_chart(
-                h_chart,
-            )
-
-    first_pass_complete = False
-
-    for line in open(position_file):
-        ws = line.split()
-        # print(ws)
-        if line_count == 6:
-            numOfElasticP = int(ws[0])
-        if line_count == 7:
-            numOfLiquidP = int(ws[0])
-        if line_count == 8:
-            numOfBoundaryP = int(ws[0])
-        if line_count == 9:
-            timeStep = float(ws[0])  # noqa: F841
-        if line_count == 10:
-            logStep = int(ws[0])
-
-        if len(ws) == 4:
-            type_ = float(ws[3])
-            if type_ not in points:
-                points[type_] = []
-
-            if not first_pass_complete:
-                if type_ not in count_point_types:
-                    count_point_types[type_] = 0
-                count_point_types[type_] += 1
-
-            if swap_y_z:
-                points[type_].append([float(ws[1]), 1 * float(ws[0]), float(ws[2])])
-            else:
-                points[type_].append([float(ws[0]), float(ws[1]), float(ws[2])])
-
-            types.append(type_)
-
-        if logStep is not None:
-            pcount += 1
-
-            if pcount == numOfBoundaryP + numOfElasticP + numOfLiquidP:
-                first_pass_complete = True
-                print(
-                    "End of one batch of %i total points (%i types), at line %i, time: %i"
-                    % (pcount, len(points), line_count, time_count)
-                )
-                all_points.append(points)
-                all_point_types.append(types)
-
-                points = {}
-                types = []
-                pcount = 0
-                numOfBoundaryP = 0
-
-                time_count += 1
-
-        line_count += 1
-
-    print(
-        "Loaded positions with %i elastic, %i liquid and %i boundary points (%i total), over %i lines"
-        % (
-            numOfElasticP,
-            numOfLiquidP,
-            numOfBoundaryP,
-            numOfElasticP + numOfLiquidP + numOfBoundaryP,
-            line_count,
-        )
+    sim_positions = SibSimulation(
+        position_file=position_file,
+        report_file=report_file,
+        downsample=downsample,
+        swap_y_z=swap_y_z,
     )
 
-    print("Num of time points found: %i" % len(all_points))
-    print("Count of point types found: %s" % dict(sorted(count_point_types.items())))
+    if sim_positions.has_worm_data():
+        add_muscle_activation_chart(sim_positions.sim_dir, pl, sim_positions.duration)
+        add_body_curvature_chart(sim_positions.sim_dir, pl, sim_positions.duration)
+    elif (
+        sim_positions.report_data is None and sim_positions.has_muscle_activation_data()
+    ):
+        print_(
+            f"Found muscle activation file at: {sim_positions.sim_dir}/muscles_activity_buffer.txt, adding muscle activation chart."
+        )
+        add_muscle_activation_chart(sim_positions.sim_dir, pl)
+        add_body_curvature_chart(sim_positions.sim_dir, pl)
+    else:
+        print_(
+            "No report file provided and no muscle activation file found, skipping muscle activation chart."
+        )
+
+    if replay_controller is None:
+        replay_controller = ReplayController(times=sim_positions.loaded_time_points)
 
     create_mesh(0)
 
     slider_text = "Time point"
-    if max_time is None:
-        max_time = len(all_points) - 1
-    else:
+
+    if sim_positions.duration is not None:
+        max_time = sim_positions.duration
         slider_text = "Time (ms)"
+    else:
+        max_time = sim_positions.num_time_points() - 1
 
     slider = pl.add_slider_widget(
-        create_mesh, rng=[0, max_time], value=0, title=slider_text, style="modern"
+        slider_updated, rng=[0, max_time], value=0, title=slider_text, style="modern"
     )
 
-    pl.add_checkbox_button_widget(play_animation, value=False)
+    replay_controller.slider_view = slider
 
+    button_height = 10
+    button_separation = 70
+    txt_offset = 8
+    txt_voffset = 12
 
-def play_animation(play_button_active):
-    global plotter, last_meshes, all_points, all_point_types, replaying, slider
-    print(
-        f"Animation button pressed. Button active {play_button_active}; replaying: {replaying}, slider value: {slider.GetSliderRepresentation().GetValue()}"
+    b0 = 10
+    pl.add_checkbox_button_widget(
+        info_checkbox_pressed,
+        value=False,
+        position=(b0, button_height),
+        color_on="lightgrey",
+        color_off="lightgrey",
+    )
+    pl.add_text(
+        "  i",
+        position=(b0 + txt_offset, button_height + txt_voffset),
+        font_size=12,
+        color="black",
     )
 
-    if not play_button_active:
-        if not replaying:
-            print("Animation already stopped - restarting")
-            slider.GetSliderRepresentation().SetValue(0)
-            curr_time = slider.GetSliderRepresentation().GetValue()
-            replaying = True
-            plotter.update()
-            plotter.render()
-        else:
-            curr_time = slider.GetSliderRepresentation().GetValue()
-            replaying = False
-            print("Animation stopped at %s." % curr_time)
-            return
-    else:
-        replaying = True
-        print("Animation started.")
+    b1 = b0 + button_separation
+    pl.add_checkbox_button_widget(
+        back_checkbox_pressed,
+        value=False,
+        position=(b1, button_height),
+        color_on="lightgrey",
+        color_off="lightgrey",
+    )
+    pl.add_text(
+        "<|",
+        position=(b1 + txt_offset, button_height + txt_voffset),
+        font_size=12,
+        color="black",
+    )
 
-    if last_meshes is None:
-        print("No meshes to animate. Please load a model first.")
+    b2 = b1 + button_separation
+    pl.add_checkbox_button_widget(
+        play_checkbox_pressed,
+        value=False,
+        position=(b2, button_height),
+        color_on="lightgrey",
+        color_off="darkgrey",
+    )
+    pl.add_text(
+        " >",
+        position=(b2 + txt_offset, button_height + txt_voffset),
+        font_size=12,
+        color="black",
+    )
+
+    b3 = b2 + button_separation
+    pl.add_checkbox_button_widget(
+        ff_checkbox_pressed,
+        value=False,
+        position=(b3, button_height),
+        color_on="lightgrey",
+        color_off="darkgrey",
+    )
+    pl.add_text(
+        ">>",
+        position=(b3 + txt_offset, button_height + txt_voffset),
+        font_size=12,
+        color="black",
+    )
+
+    b4 = b3 + button_separation
+    pl.add_checkbox_button_widget(
+        fwd_checkbox_pressed,
+        value=False,
+        position=(b4, button_height),
+        color_on="lightgrey",
+        color_off="lightgrey",
+    )
+    pl.add_text(
+        "|>",
+        position=(b4 + txt_offset, button_height + txt_voffset),
+        font_size=12,
+        color="black",
+    )
+
+
+def slider_updated(value):
+    global replay_controller
+    print_(
+        f" > Slider updated to value: {value}, replay: {replay_controller.get_state()}"
+    )
+
+    replay_controller.set_to_time(value)
+
+
+def info_checkbox_pressed(value):
+    global replay_controller
+    print_(f" > Info checkbox pressed, value: {value}")
+    if value:
+        print_(" > Showing sim info:")
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+        fig.suptitle("Sibernetic Replay Info")
+        info_lines = [
+            f"Total time points loaded: {sim_positions.num_time_points()}",
+            f"Total points per time point: {len(sim_positions.all_point_types[0])}",
+        ]
+        if sim_positions.report_data is not None:
+            for key, val in sim_positions.report_data.items():
+                info_lines.append(f"{key}:  {val}")
+
+        # Remove the axes
+        ax.axis("off")
+
+        # Add text to the center of the figure
+        ax.text(
+            0.5,
+            0.5,
+            "\n".join(info_lines),
+            fontsize=8,
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            bbox=dict(facecolor="white", alpha=0.8),
+        )
+
+        # Display the window
+        plt.show()
+
+
+def fwd_checkbox_pressed(value):
+    global replay_controller
+    print_(f" > Fwd checkbox pressed, value: {value}")
+    replay_controller.step_forward()
+
+
+def play_checkbox_pressed(value):
+    global replay_controller
+    print_(f" > Play checkbox pressed, value: {value}")
+    replay_controller.play(value, 1)
+
+
+def ff_checkbox_pressed(value):
+    global replay_controller
+    print_(f" > FF checkbox pressed, value: {value}")
+    replay_controller.play(value, 3)
+
+
+def back_checkbox_pressed(value):
+    global replay_controller
+    print_(f" > Back checkbox pressed, value: {value}")
+    replay_controller.step_backward()
+
+
+def create_mesh(time_index):
+    global sim_positions, last_meshes, plotter, offset3d_, show_boundary
+
+    if time_index >= sim_positions.num_time_points():
+        print_(
+            "Index %i out of bounds for loaded time points with length %i"
+            % (time_index, sim_positions.num_time_points())
+        )
         return
 
-    for i in range(len(all_points)):
-        if not replaying:
-            break
-        curr_time = slider.GetSliderRepresentation().GetValue()
+    print_(
+        "   -- Creating new mesh at time point index: %s/%s"
+        % (time_index, sim_positions.num_time_points())
+    )
+    curr_points_dict = sim_positions.get_points_at(time_index)
 
-        print(
-            " --- Animating step %i/%i (curr_time: %s) of %i, %s"
-            % (i, len(all_points), curr_time, len(all_points), play_button_active)
-        )
-        next_time = curr_time + 1
-        slider.GetSliderRepresentation().SetValue(next_time)
-
-        create_mesh(next_time)
-        plotter.update()
-        plotter.render()
-        time.sleep(replay_speed)
-
-    replaying = False
-
-
-def create_mesh(step):
-    step_count = step
-    value = step_count
-    global all_points, last_meshes, plotter, offset3d_, replaying, show_boundary
-
-    index = int(value)
-    if index >= len(all_points):
-        print(
-            "Index %i out of bounds for all_points with length %i"
-            % (index, len(all_points))
-        )
-        replaying = False
-        return
-
-    print("   -- Creating new mesh at time point: %s (%s) " % (index, value))
-    curr_points_dict = all_points[index]
-
-    print("      Plotting %i point types" % (len(curr_points_dict)))
+    print_("      Plotting %i point types" % (len(curr_points_dict)))
 
     for type_, curr_points in curr_points_dict.items():
         color, info, size = get_color_info_for_type(type_)
+
         is_boundary = "boundary" in info
-        if show_boundary is False and is_boundary:
+
+        if show_boundary is False and is_boundary and time_index == 0:
+            # print (curr_points)
+            mx = np.max(curr_points, axis=0)
+            mn = np.min(curr_points, axis=0)
+            swap = False
+            if swap:
+                a = [mn[0], mn[1], mn[2]]
+                b = [mn[0], mx[1], mn[2]]
+                c = [mn[0], mx[1], mx[2]]
+                d = [mn[0], mn[1], mx[2]]
+            else:
+                a = [mn[0], mn[1], mn[2]]
+                b = [mx[0], mn[1], mn[2]]
+                c = [mx[0], mn[1], mx[2]]
+                d = [mn[0], mn[1], mx[2]]
+
+            print_(f"        >>>>>>>>>>   Boundary box points: {a}, {b}, {c}, {d}")
+            points = np.array([a, b, b, c, c, d, d, a])
+            plotter.add_lines(points, color="grey", width=2)
+            """
+            plotter.add_mesh(pv.Sphere(radius=3, center=a), color="pink")
+            plotter.add_mesh(pv.Sphere(radius=4, center=b), color="blue")
+            plotter.add_mesh(pv.Sphere(radius=5, center=c), color="red")
+            plotter.add_mesh(pv.Sphere(radius=6, center=d), color="purple")"""
+
+            # quit()
             continue
 
         if verbose:
-            print(
+            print_(
                 "       - Plotting %i points of type '%s' (%s), color: %s, size: %i"
                 % (len(curr_points), type_, info, color, size)
             )
@@ -322,7 +579,7 @@ def create_mesh(step):
                     (offset3d_[0], offset3d_[1], offset3d_[2]), inplace=True
                 )
             else:
-                print("Boundary points not translated")
+                print_("Boundary points not translated")
 
     plotter.render()
     # time.sleep(0.1)
@@ -333,11 +590,11 @@ def create_mesh(step):
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
-    position_file = "buffers/position_buffer.txt"  # can be overwritten by arg
+    default_position_file = "buffers/position_buffer.txt"  # can be overwritten by arg
     report_file = None
 
-    if not os.path.isfile(position_file):
-        position_file = (
+    if not os.path.isfile(default_position_file):
+        default_position_file = (
             "Sibernetic/position_buffer.txt"  # example location in Worm3DViewer repo
         )
 
@@ -346,38 +603,71 @@ if __name__ == "__main__":
     if "-b" in sys.argv:
         include_boundary = True
     else:
-        print("Run with -b to display boundary box")
+        print_("Run with -b to display boundary box")
 
-    if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
-        if "json" in sys.argv[1]:
+    if len(sys.argv) > 1:
+        if os.path.isdir(sys.argv[1]):
+            if os.path.isfile(os.path.join(sys.argv[1], "report.json")):
+                position_file = None
+                report_file = os.path.join(sys.argv[1], "report.json")
+                dir_name = os.path.dirname(report_file)
+
+            elif os.path.isfile(os.path.join(sys.argv[1], "position_buffer.txt")):
+                position_file = os.path.join(sys.argv[1], "position_buffer.txt")
+                dir_name = os.path.dirname(position_file)
+            else:
+                raise ValueError(
+                    f"Provided argument is a directory but no report.json or position_buffer.txt file found in it: {sys.argv[1]}"
+                )
+
+        elif "json" in sys.argv[1] and os.path.isfile(sys.argv[1]):
             position_file = None
             report_file = sys.argv[1]
+            dir_name = os.path.dirname(report_file)
+
         else:
+            if not os.path.isfile(sys.argv[1]):
+                raise ValueError(
+                    f"Provided argument is not a valid file or directory: {sys.argv[1]}"
+                )
             position_file = sys.argv[1]
+            dir_name = os.path.dirname(position_file)
+
+    else:
+        position_file = default_position_file
+
+    swap_y_z = False
 
     add_sibernetic_model(
         plotter,
         position_file,
         report_file,
-        swap_y_z=True,
+        swap_y_z=swap_y_z,
         include_boundary=include_boundary,
     )
     plotter.window_size = [1600, 800]
 
     plotter.set_background("white")
     plotter.add_axes()
-    plotter.camera_position = "zx"
-    plotter.camera.roll = 90
-    plotter.camera.elevation = 45
-    print(plotter.camera_position)
+
+    if swap_y_z:
+        plotter.camera_position = "zx"
+        plotter.camera.roll = 90
+        plotter.camera.elevation = 45
+    else:
+        plotter.camera_position = "yz"
+        plotter.camera.roll = 0
+        plotter.camera.elevation = 25
+
+    # print(plotter.camera_position)
 
     def on_close_callback(plotter):
-        global replaying
-        print(
-            f"Plotter window is closing. Performing actions now (replaying: {replaying})."
+        global replay_controller
+        print_(
+            f"Plotter window is closing. Performing actions now (replay: {replay_controller.get_state()})."
         )
-        replaying = False
+        replay_controller.state = State.PAUSED
 
     if "-nogui" not in sys.argv:
         plotter.show(before_close_callback=on_close_callback, auto_close=True)
-        print("Done showing")
+        print_("Done showing")
