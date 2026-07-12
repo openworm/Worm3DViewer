@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     add_sibernetic_model(plotter, swap_y_z=True, offset3d=(spacing, -50, -100))
     add_neuroml_model(
-        plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=False
+        plotter, "NeuroML2/c302_D_Full.net.nml", somas_only=False,
+        factor=0.2
     )  # at 0...
     add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
     add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
