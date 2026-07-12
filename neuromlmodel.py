@@ -8,6 +8,28 @@ from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
 
+def _rotation_matrix(rotate_x=0.0, rotate_y=0.0, rotate_z=0.0):
+    """Combined rotation matrix for rotations (in degrees) about the x,
+    y, then z axes, applied in that order (R = Rz @ Ry @ Rx)."""
+    rx, ry, rz = np.radians([rotate_x, rotate_y, rotate_z])
+
+    cx, sx = np.cos(rx), np.sin(rx)
+    cy, sy = np.cos(ry), np.sin(ry)
+    cz, sz = np.cos(rz), np.sin(rz)
+
+    Rx = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
+    Ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
+    Rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+
+    return Rz @ Ry @ Rx
+
+
+def _transform(coords, rotation, factor):
+    """Rotate coords (a (3,) or (N,3) array-like, NeuroML x/y/z) and
+    scale by factor, for viewer display."""
+    return np.asarray(coords, dtype=float) @ rotation.T * factor
+
+
 _UNIT_SPHERE = pv.Sphere(radius=1.0)
 
 
@@ -73,7 +95,15 @@ def make_segment(
     return np.vstack(points), faces, np.vstack(normals)
 
 
-def add_neuroml_model(plotter, filename, somas_only=False, factor=1):
+def add_neuroml_model(
+    plotter,
+    filename,
+    somas_only=False,
+    factor=1,
+    rotate_x=0.0,
+    rotate_y=0.0,
+    rotate_z=0.0,
+):
 
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
 
@@ -87,6 +117,8 @@ def add_neuroml_model(plotter, filename, somas_only=False, factor=1):
         pop_id_vs_radii,
     ) = extract_position_info(nml_doc, False)
 
+    rotation = _rotation_matrix(rotate_x, rotate_y, rotate_z)
+
     for pop_id, cell in pop_id_vs_cell.items():
         pos_pop = positions[pop_id]  # type: typing.Dict[typing.Any, typing.List[float]]
 
@@ -99,13 +131,9 @@ def add_neuroml_model(plotter, filename, somas_only=False, factor=1):
             pop_id_vs_color[pop_id] if pop_id in pop_id_vs_color else np.random.rand(3)
         )
 
-        # instance positions of this population, remapped/scaled to viewer axes
-        points = np.array(
-            [
-                [pos[0] * factor, pos[2] * factor, -1 * pos[1] * factor]
-                for pos in pos_pop.values()
-            ]
-        )
+        # instance positions of this population, rotated/scaled to viewer axes
+        raw_positions = np.array(list(pos_pop.values()), dtype=float)
+        points = _transform(raw_positions, rotation, factor)
         point_cloud = pv.PolyData(points)
 
         if isinstance(cell, Cell):
@@ -131,8 +159,8 @@ def add_neuroml_model(plotter, filename, somas_only=False, factor=1):
                 if somas_only and seg.id != 0:
                     continue
 
-                pointa = (p.x * factor, p.z * factor, -1 * p.y * factor)
-                pointb = (d.x * factor, d.z * factor, -1 * d.y * factor)
+                pointa = tuple(_transform((p.x, p.y, p.z), rotation, factor))
+                pointb = tuple(_transform((d.x, d.y, d.z), rotation, factor))
 
                 if cell.get_segment_length(seg.id) == 0:
                     sphere_pieces.append(make_sphere(pointa, p.diameter * factor / 2))
@@ -183,6 +211,8 @@ if __name__ == "__main__":
     c302_nml = "NeuroML2/c302_D_Full.net.nml"
 
     show_gui = True
+    rotate_x = 0
+
     if "-nogui" in sys.argv:
         show_gui = False
         sys.argv.remove("-nogui")
@@ -193,10 +223,19 @@ if __name__ == "__main__":
         nml_file = sys.argv[1]
     else:
         nml_file = c302_nml
+        rotate_x = -90
 
-    add_neuroml_model(plotter, nml_file, somas_only=False)
+    add_neuroml_model(
+        plotter,
+        nml_file,
+        somas_only=False,
+    )
     plotter.set_background("white")
     plotter.add_axes()
+
+    plotter.camera_position = "xy"
+    plotter.camera.roll = 0
+    plotter.camera.elevation = 5
 
     if show_gui:
         plotter.show()
