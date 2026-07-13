@@ -8,4 +8,5 @@ stpyvista
 
 libneuroml
 pyneuroml
+cect
 ruff 
