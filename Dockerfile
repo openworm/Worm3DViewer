@@ -1,17 +1,21 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update
+RUN apt-get install -y \
+    curl   
+RUN apt-get install -y \
     build-essential \
-    curl \
-    software-properties-common \
-    git  \
-    libxrender1 procps libgl1-mesa-glx xvfb \
+    git  
+RUN apt-get install -y \
+    libxrender1 procps libgl1 xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 
 COPY requirements.txt ./
+# TODO: test/update with latest versions 
+RUN pip3 install pyvista==0.46.4 stpyvista==0.1.4
 RUN pip3 install  -r   requirements.txt
 
 
