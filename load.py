@@ -8,7 +8,6 @@ from virtualworm import add_virtualworm_neurons  # noqa: F401
 from virtualworm import print_picked_name  # noqa: F401
 
 
-
 if __name__ == "__main__":
     plotter = pv.Plotter()
 
@@ -30,14 +29,14 @@ if __name__ == "__main__":
     plotter.set_background("white")
     plotter.set_viewup([0, 10, 0])
 
-    '''
+    """
     # Slow it significantly...
     plotter.enable_mesh_picking(
         callback=print_picked_name,
         use_actor=True,
         left_clicking=True,
         show_message=False,
-    )'''
+    )"""
 
     # plotter.add_axes()
 
