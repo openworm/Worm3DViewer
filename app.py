@@ -40,9 +40,18 @@ plotter = pv.Plotter()
 
 
 spacing = 50
+"""
+add_sibernetic_model(
+        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+    )
 
-add_sibernetic_model(plotter, swap_y_z=True, offset=spacing)
-add_neuroml_model(plotter, "NeuroML2/c302_A_Full.net.nml", somas_only=False)  # at 0...
+add_neuroml_model(
+        plotter,
+        "NeuroML2/c302_D_Full.net.nml",
+        somas_only=False,
+        factor=0.2,
+        rotate_x=-90,
+    )  # at 0..."""
 add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
 # add_virtualworm_neurons(plotter, translate=(-1.8*spacing, 0, 0))
 
