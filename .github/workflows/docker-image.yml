@@ -17,12 +17,13 @@ jobs:
     - name: Build the Docker image
       run: |
         ls -alth
-        ./generate.sh
+        ./build.sh
 
     - name: Info on Docker images
       run: |
         docker -v
         docker images
+        docker run -t --rm --entrypoint /bin/bash worm3dviewer  -c "pip3 list && python -V"
 
 
 
