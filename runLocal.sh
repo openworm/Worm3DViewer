@@ -1,1 +1,1 @@
-docker run  -p 8501:8501 -i -t worm3dviewer /bin/bash
+docker run  -p 8080:8080 -i -t worm3dviewer /bin/bash

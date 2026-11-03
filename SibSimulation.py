@@ -125,11 +125,21 @@ class SibSimulation:
         return float(self.duration) if self.duration is not None else 0
 
     def get_run_time_s(self):
-        return round(float(self.report_data.get("run_time").split()[0]), 5) if self.report_data is not None else 0
+        return (
+            round(float(self.report_data.get("run_time").split()[0]), 5)
+            if self.report_data is not None
+            else 0
+        )
 
     def get_timestamp(self):
         # when the simulation was run based on last modified date of s.report_file
-        timestamp = os.path.getmtime(self.report_file) if self.report_file is not None else os.path.getmtime(self.position_file) if self.position_file is not None else "???"
+        timestamp = (
+            os.path.getmtime(self.report_file)
+            if self.report_file is not None
+            else os.path.getmtime(self.position_file)
+            if self.position_file is not None
+            else "???"
+        )
         return timestamp
 
     def get_metadata(self):
