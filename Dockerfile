@@ -15,8 +15,8 @@ RUN apt-get install -y \
 
 COPY requirements.txt ./
 # TODO: test/update with latest versions 
-RUN pip3 install pyvista==0.46.4 stpyvista==0.1.4
 RUN pip3 install  -r   requirements.txt
+RUN pip3 install pyvista==0.46.4 stpyvista==0.1.4
 
 
 COPY *.py *.stl *.obj ./

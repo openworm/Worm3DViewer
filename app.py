@@ -40,11 +40,11 @@ plotter = pv.Plotter()
 
 
 spacing = 50
-"""
-add_sibernetic_model(
-        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
-    )
 
+add_sibernetic_model(
+    plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+)
+"""
 add_neuroml_model(
         plotter,
         "NeuroML2/c302_D_Full.net.nml",
