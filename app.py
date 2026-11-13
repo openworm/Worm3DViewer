@@ -6,7 +6,7 @@ from virtualworm import add_virtualworm_neurons  # noqa: F401
 import pyvista as pv
 import sys
 
-version = "v0.1.2"
+version = "v0.1.6"
 
 st_mode = "-gui" not in sys.argv
 
@@ -48,9 +48,9 @@ print("Read objs...")
 plotter = pv.Plotter()
 
 adding_sibernetic_model = False
-adding_neuroml_model = True
-adding_virtualworm_muscles = True
-adding_virtualworm_neurons = False
+adding_neuroml_model = False
+adding_virtualworm_muscles = False
+adding_virtualworm_neurons = True
 
 spacing = 50
 
@@ -58,7 +58,7 @@ spacing = 50
 if adding_sibernetic_model:
     print_("Adding Sibernetic model...")
     add_sibernetic_model(
-        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=True
     )
 
 if adding_neuroml_model:
