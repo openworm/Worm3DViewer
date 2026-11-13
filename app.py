@@ -6,7 +6,7 @@ from virtualworm import add_virtualworm_neurons  # noqa: F401
 import pyvista as pv
 import sys
 
-version = "v0.0.8"
+version = "v0.1.0"
 
 st_mode = "-gui" not in sys.argv
 
@@ -51,11 +51,11 @@ add_neuroml_model(
         somas_only=False,
         factor=0.2,
         rotate_x=-90,
-    )  # at 0..."""
+    )  # at 0...
+"""
 
 add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
 # add_virtualworm_neurons(plotter, translate=(-1.8*spacing, 0, 0))
-
 
 plotter.set_viewup([0, 10, 0])
 
