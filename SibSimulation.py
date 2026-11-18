@@ -116,7 +116,10 @@ class SibSimulation:
             self._find_vtp_files()
 
         if load_traces and self.has_worm_data():
-            self._load_traces()
+            try:
+                self._load_traces()
+            except Exception as e:
+                print(f"Error loading traces: {e}")
 
     def __repr__(self):
         return f"SibSimulation(sim_dir={self.sim_dir}, duration={self.get_duration_ms()} ms)"
@@ -228,8 +231,12 @@ class SibSimulation:
         try:
             lems_file = os.path.join(self.sim_dir, "LEMS_c302.xml")
             if os.path.isfile(lems_file):
-                print_(f"Loading LEMS file: {lems_file}")
-                results = reload_saved_data(lems_file, verbose=True)
+                print_(
+                    f"Loading LEMS file: {lems_file}, downsampled to every {self.downsample} time points..."
+                )
+                results = reload_saved_data(
+                    lems_file, verbose=True, downsample=self.downsample
+                )
                 print(f"Result keys: {results.keys()}")
 
                 for k, v in results.items():
@@ -263,23 +270,27 @@ class SibSimulation:
 
                     elif cell_ref.startswith("M") and variable == "v":
                         self.muscle_memb_potentials[cell_ref] = np.array(v) * 1000.0
-                        print_(f"  Muscle {cell_ref} v:\tmin {min(v)}, max {max(v)}")
+                        print_(
+                            f"  Muscle {cell_ref} v:\tmin {min(v)}, max {max(v)}, {len(v)} points"
+                        )
 
                     elif cell_ref.startswith("M") and variable == "caConc":
                         self.muscle_ca_conc[cell_ref] = v
                         print_(
-                            f"  Muscle {cell_ref} caConc:\tmin {min(v)}, max {max(v)}"
+                            f"  Muscle {cell_ref} caConc:\tmin {min(v)}, max {max(v)}, {len(v)} points"
                         )
 
                     elif cell_ref.startswith("M") and variable == "state":
                         self.muscle_states[cell_ref] = v
                         print_(
-                            f"  Muscle {cell_ref} state:\tmin {min(v)}, max {max(v)}"
+                            f"  Muscle {cell_ref} state:\tmin {min(v)}, max {max(v)}, {len(v)} points"
                         )
 
                     elif variable == "v":
                         self.neuron_memb_potentials[cell_ref] = v
-                        print_(f"  Neuron {cell_ref} v:\tmin {min(v)}, max {max(v)}")
+                        print_(
+                            f"  Neuron {cell_ref} v:\tmin {min(v)}, max {max(v)}, {len(v)} points"
+                        )
 
                     elif variable == "caConc":
                         self.neuron_ca_conc[cell_ref] = v
