@@ -158,7 +158,6 @@ class SibSimulation:
         return metadata
 
     def _load_report(self, report_file, fail_if_missing=True):
-
         if not os.path.isfile(report_file):
             print(f"Report file not found: {report_file}")
             if fail_if_missing:
@@ -191,7 +190,6 @@ class SibSimulation:
         )
 
     def _load_traces(self):
-
         self.muscle_activity_to_sibernetic = {}
         self.muscle_states = {}
         self.neuron_states = {}
@@ -484,7 +482,6 @@ class SibSimulation:
         return times, np.array(positions)
 
     def display_traces(self, show=True):
-
         # This needs to be present
         plot_muscle_activity(
             self.muscle_activity_to_sibernetic,
@@ -539,7 +536,6 @@ class SibSimulation:
 
 
 def _remove_empty_axes(f, a, xlabel="Time step (ms)"):
-
     # iterate over the axes, and if any of them contain no plots, remove them from the figure
     remaining = []
     for ax in a:
@@ -560,7 +556,6 @@ def _remove_empty_axes(f, a, xlabel="Time step (ms)"):
 
 
 def plot_neuron_activity(neurons, label, title, show_labels=False):
-
     pops = ["DD", "DA", "DB", "VB", "VA", "VD", "Others"]
 
     f, a = plt.subplots(len(pops), sharex=True, sharey=True)
@@ -659,7 +654,6 @@ def _get_color_for_index(index, mid, total):
 def plot_muscle_activity(
     muscles, label=" act.", title="Muscle activity", show_labels=False
 ):
-
     f, a = plt.subplots(4, sharex=True, sharey=True)
 
     f.suptitle(title)

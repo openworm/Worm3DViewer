@@ -104,7 +104,6 @@ def add_neuroml_model(
     rotate_y=0.0,
     rotate_z=0.0,
 ):
-
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
 
     print("Loaded NeuroML file: %s" % filename)
