@@ -3,10 +3,15 @@ from SiberneticReplay import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
 from virtualworm import add_virtualworm_neurons  # noqa: F401
 
-import pyvista as pv
+import os
+import platform
+import shutil
+import subprocess
 import sys
 
-version = "v0.1.6"
+import pyvista as pv
+
+version = "v0.2.0"
 
 st_mode = "-gui" not in sys.argv
 
@@ -17,6 +22,26 @@ def print_(msg, print_it=True):  # print_it=False when not verbose
         print("%s %s" % (pre, msg.replace("\n", "\n" + pre)))
 
 
+def start_xvfb(display=99, resolution=(1024, 768)):
+    """Start a virtual X server for headless rendering.
+
+    Replacement for stpyvista.utils.start_xvfb (removed in stpyvista>=0.2) and
+    pyvista.start_xvfb (removed in recent pyvista). Only needed on Linux with no
+    display, e.g. in the Docker image.
+    """
+    if platform.system() != "Linux" or os.environ.get("DISPLAY"):
+        return
+    if shutil.which("Xvfb") is None:
+        print_("Xvfb not found; assuming offscreen rendering is available")
+        return
+    subprocess.Popen(
+        ["Xvfb", f":{display}", "-screen", "0", "%dx%dx24" % resolution],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    os.environ["DISPLAY"] = f":{display}"
+
+
 print_("Starting OpenWorm 3D Viewer (%s)" % version)
 
 if st_mode:
@@ -25,8 +50,6 @@ if st_mode:
     print_("Streamlit mode detected...")
 
     st.set_page_config(layout="wide")
-
-    from stpyvista.utils import start_xvfb
 
     if "IS_XVFB_RUNNING" not in st.session_state:
         print_("Starting XVFB...")
@@ -41,16 +64,14 @@ if st_mode:
 
 
 ## Initialize a plotter object
-plotter = pv.Plotter(window_size=[800, 600])
-
-print("Read objs...")
-
-plotter = pv.Plotter()
+# Off-screen in Streamlit mode: the script runs on a non-main thread, where
+# on-screen rendering (e.g. Cocoa on macOS) aborts
+plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
 
 adding_sibernetic_model = False
 adding_neuroml_model = False
-adding_virtualworm_muscles = False
-adding_virtualworm_neurons = True
+adding_virtualworm_muscles = True
+adding_virtualworm_neurons = False
 
 spacing = 50
 
@@ -90,7 +111,8 @@ if st_mode:
         print_("Pass a key to avoid re-rendering at each page change")
         from stpyvista import stpyvista
 
-        stpyvista(plotter, key="pv_cube")
+        # The panel backend needs no extra dependencies (the default, trame, does)
+        stpyvista(plotter, backend="panel", key="pv_cube")
     pass
 else:
     plotter.show()
