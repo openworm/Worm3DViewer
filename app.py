@@ -11,7 +11,9 @@ import sys
 
 import pyvista as pv
 
-version = "v0.2.0"
+version = "v0.2.4"
+
+stpyvista_version = "0.1.4"
 
 st_mode = "-gui" not in sys.argv
 
@@ -61,6 +63,10 @@ if st_mode:
     st.markdown(
         "This is a 3D viewer for a number of OpenWorm _C. elegans_ models and datasets. It uses PyVista for rendering..."
     )
+    st.markdown(
+        "Using pyvista %s, stpyvista %s, and streamlit %s"
+        % (pv.__version__, stpyvista_version, st.__version__)
+    )
 
 
 ## Initialize a plotter object
@@ -68,10 +74,10 @@ if st_mode:
 # on-screen rendering (e.g. Cocoa on macOS) aborts
 plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
 
-adding_sibernetic_model = False
-adding_neuroml_model = False
+adding_sibernetic_model = True
+adding_neuroml_model = True
 adding_virtualworm_muscles = True
-adding_virtualworm_neurons = False
+adding_virtualworm_neurons = True
 
 spacing = 50
 
@@ -79,7 +85,7 @@ spacing = 50
 if adding_sibernetic_model:
     print_("Adding Sibernetic model...")
     add_sibernetic_model(
-        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=True
+        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
     )
 
 if adding_neuroml_model:
