@@ -71,8 +71,8 @@ if st_mode:
 ## Default selection of models to show (the checkboxes below override these
 ## in Streamlit mode)
 adding_sibernetic_model = False
-adding_neuroml_model = False
-adding_virtualworm_muscles = True
+adding_neuroml_model = True
+adding_virtualworm_muscles = False
 adding_virtualworm_neurons = False
 
 if st_mode:
@@ -94,8 +94,35 @@ if st_mode:
 
 spacing = 50
 
+NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
 
-def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons):
+
+def get_cell_groups(nml_file):
+    """Groups of cell names (present in the NeuroML file) to select from.
+    An empty list means "all cells"."""
+    import re
+
+    import cect.Cells as cells
+
+    with open(nml_file) as f:
+        ids = re.findall(r'<population id="([^"]*)"', f.read())
+
+    def present(names):
+        return [i for i in ids if i in names]
+
+    return {
+        "All cells": [],
+        "Only muscles": [i for i in ids if cells.is_known_muscle(i)],
+        "Only neurons": [i for i in ids if cells.is_any_neuron(i)],
+        "Sensory neurons": present(cells.SENSORY_NEURONS_COOK),
+        "Interneurons": present(cells.INTERNEURONS_COOK),
+        "Motor neurons": present(cells.MOTORNEURONS_COOK),
+        "Pharyngeal neurons": present(cells.PHARYNGEAL_NEURONS),
+        "Specific cells...": None,
+    }, ids
+
+
+def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
     """Build a plotter containing the selected models"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
     # on-screen rendering (e.g. Cocoa on macOS) aborts
@@ -115,25 +142,46 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons):
             somas_only=False,
             factor=0.2,
             rotate_x=-90,
+            only_show=list(only_show),
         )  # at 0...
 
     if vw_muscles:
         print_("Adding VirtualWorm muscles...")
-        add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
+        add_virtualworm_muscles(
+            plotter, translate=(-1 * spacing, 0, 0), only_show=list(only_show)
+        )
 
     if vw_neurons:
         print_("Adding VirtualWorm neurons...")
-        add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
+        add_virtualworm_neurons(
+            plotter, translate=(-1.8 * spacing, 0, 0), only_show=list(only_show)
+        )
 
     plotter.set_viewup([0, 10, 0])
     return plotter
 
+
+only_show = []
+if st_mode:
+    groups, all_cell_ids = get_cell_groups(NEUROML_FILE)
+    group = st.selectbox(
+        "Cells to show (applied to the NeuroML and VirtualWorm models):",
+        list(groups.keys()),
+        key="sel_cell_group",
+    )
+    if groups[group] is None:
+        only_show = st.multiselect(
+            "Choose cells:", all_cell_ids, default=["AVAL", "AVAR"], key="sel_cells"
+        )
+    else:
+        only_show = groups[group]
 
 selection = (
     adding_sibernetic_model,
     adding_neuroml_model,
     adding_virtualworm_muscles,
     adding_virtualworm_neurons,
+    tuple(only_show),
 )
 
 if st_mode:
@@ -158,6 +206,7 @@ if st_mode:
             adding_virtualworm_muscles,
             adding_virtualworm_neurons,
         )
+        view_key += "_%d" % hash(tuple(only_show))
 
         # The panel backend needs no extra dependencies (the default, trame, does)
         stpyvista(plotter, backend="panel", key=view_key)
