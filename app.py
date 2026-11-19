@@ -11,7 +11,7 @@ import sys
 
 import pyvista as pv
 
-version = "v0.2.4"
+version = "v0.3.1"
 
 stpyvista_version = "0.1.4"
 
@@ -68,46 +68,79 @@ if st_mode:
         % (pv.__version__, stpyvista_version, st.__version__)
     )
 
-
-## Initialize a plotter object
-# Off-screen in Streamlit mode: the script runs on a non-main thread, where
-# on-screen rendering (e.g. Cocoa on macOS) aborts
-plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
-
-adding_sibernetic_model = True
-adding_neuroml_model = True
+## Default selection of models to show (the checkboxes below override these
+## in Streamlit mode)
+adding_sibernetic_model = False
+adding_neuroml_model = False
 adding_virtualworm_muscles = True
-adding_virtualworm_neurons = True
+adding_virtualworm_neurons = False
+
+if st_mode:
+    st.markdown("**Select the WORM models to view:**")
+    cols = st.columns(4)
+    adding_virtualworm_neurons = cols[0].checkbox(
+        "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
+    )
+    adding_virtualworm_muscles = cols[1].checkbox(
+        "VirtualWorm muscles", value=adding_virtualworm_muscles, key="cb_vw_muscles"
+    )
+    adding_neuroml_model = cols[2].checkbox(
+        "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
+    )
+    adding_sibernetic_model = cols[3].checkbox(
+        "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
+    )
+
 
 spacing = 50
 
 
-if adding_sibernetic_model:
-    print_("Adding Sibernetic model...")
-    add_sibernetic_model(
-        plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
-    )
+def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons):
+    """Build a plotter containing the selected models"""
+    # Off-screen in Streamlit mode: the script runs on a non-main thread, where
+    # on-screen rendering (e.g. Cocoa on macOS) aborts
+    plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
 
-if adding_neuroml_model:
-    print_("Adding NeuroML model...")
-    add_neuroml_model(
-        plotter,
-        "NeuroML2/c302_D_Full.net.nml",
-        somas_only=False,
-        factor=0.2,
-        rotate_x=-90,
-    )  # at 0...
+    if sibernetic:
+        print_("Adding Sibernetic model...")
+        add_sibernetic_model(
+            plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+        )
 
-if adding_virtualworm_muscles:
-    print_("Adding VirtualWorm muscles...")
-    add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
+    if neuroml:
+        print_("Adding NeuroML model...")
+        add_neuroml_model(
+            plotter,
+            "NeuroML2/c302_D_Full.net.nml",
+            somas_only=False,
+            factor=0.2,
+            rotate_x=-90,
+        )  # at 0...
 
-if adding_virtualworm_neurons:
-    print_("Adding VirtualWorm neurons...")
-    add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
+    if vw_muscles:
+        print_("Adding VirtualWorm muscles...")
+        add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
 
-plotter.set_viewup([0, 10, 0])
+    if vw_neurons:
+        print_("Adding VirtualWorm neurons...")
+        add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
 
+    plotter.set_viewup([0, 10, 0])
+    return plotter
+
+
+selection = (
+    adding_sibernetic_model,
+    adding_neuroml_model,
+    adding_virtualworm_muscles,
+    adding_virtualworm_neurons,
+)
+
+if st_mode:
+    with st.spinner("Worm models are being loading...", show_time=True):
+        plotter = build_scene(*selection)
+else:
+    plotter = build_scene(*selection)
 
 print_("Created the scene...")
 
@@ -117,8 +150,17 @@ if st_mode:
         print_("Pass a key to avoid re-rendering at each page change")
         from stpyvista import stpyvista
 
+        # The key depends on the selection so the view is re-mounted (and so
+        # updated) when a checkbox changes
+        view_key = "pv_Sib%d_NML%d_VWM%d_VWN%d" % (
+            adding_sibernetic_model,
+            adding_neuroml_model,
+            adding_virtualworm_muscles,
+            adding_virtualworm_neurons,
+        )
+
         # The panel backend needs no extra dependencies (the default, trame, does)
-        stpyvista(plotter, backend="panel", key="pv_cube")
+        stpyvista(plotter, backend="panel", key=view_key)
     pass
 else:
     plotter.show()
