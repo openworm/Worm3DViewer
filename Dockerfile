@@ -20,6 +20,7 @@ RUN pip3 install pyvista stpyvista
 
 
 COPY *.py *.stl *.obj ./
+COPY .streamlit/* ./.streamlit/
 COPY Sibernetic/* ./Sibernetic/
 COPY NeuroML2/* ./NeuroML2/
 COPY NeuroML2/cells/* ./NeuroML2/cells/

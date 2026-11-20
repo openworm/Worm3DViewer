@@ -71,7 +71,7 @@ header[data-testid="stHeader"] { display: none; }
 .block-container { padding: 0.6rem 1rem 2.6rem 1rem; max-width: 100%; }
 div[data-testid="stVerticalBlock"] { gap: 0.35rem; }
 div[data-testid="stHorizontalBlock"] { gap: 0.5rem; }
-.ow-title { color: #fff; font-size: 1.25rem; font-weight: 600; margin: 0;
+.stApp p.ow-title { color: #fff; font-size: 1.25rem; font-weight: 600; margin: 0;
             line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
 .ow-title span { font-size: 0.75rem; font-weight: 400; margin-left: 0.6rem;
                  opacity: 0.9; }
@@ -84,13 +84,23 @@ div[data-testid="stSelectbox"] > div, div[data-testid="stMultiSelect"] > div {
 div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
 div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
   min-height: 1.9rem; background: rgba(255,255,255,0.75); border-radius: 1rem; }
-div[data-testid="stVerticalBlockBorderWrapper"] {
+/* The panel box: the inner block of the bordered layout wrapper in a column */
+div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]
+  > div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"] {
   background: rgba(255,255,255,0.22); border-color: rgba(44,67,16,0.35);
-  border-radius: 0.6rem; padding: 0.1rem 0.2rem; }
+  border-radius: 0.6rem; }
+/* Space below the page title, before the panels */
+div[data-testid="stElementContainer"]:has(.ow-title) { margin-bottom: 0.7rem; }
+/* Equal height panels: each column fills its row, and the bordered panel
+   (a layout wrapper directly in a column) fills the column */
+div[data-testid="stColumn"] { display: flex; flex-direction: column; }
+div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] { flex: 1 1 auto; }
+div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]
+  > div[data-testid="stLayoutWrapper"] { flex: 1 1 auto; }
 .ow-panel-title { font-size: 0.68rem !important; font-weight: 700;
                   text-transform: uppercase; letter-spacing: 0.06em;
                   color: var(--ow-dark) !important; margin: 0;
-                  line-height: 1.4; margin-bottom: 0.45rem !important; }
+                  line-height: 1.4; margin-bottom: 0.8rem !important; }
 .ow-footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999;
              background: var(--ow-dark); color: #fff; font-size: 0.72rem;
              padding: 0.35rem 1rem; text-align: right; }
@@ -120,7 +130,8 @@ adding_virtualworm_muscles = False
 adding_virtualworm_neurons = True
 
 
-spacing = 50
+# Default spacing between the worms (the slider in Streamlit mode can lower it)
+DEFAULT_SPACING = 50
 
 NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
 
@@ -171,6 +182,7 @@ def build_scene(
     only_show=(),
     colors={},
     background=None,
+    spacing=DEFAULT_SPACING,
 ):
     """Build a plotter containing the selected models"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
@@ -214,7 +226,12 @@ def build_scene(
     if sibernetic:
         print_("Adding Sibernetic model...")
         add_sibernetic_model(
-            plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+            plotter,
+            swap_y_z=True,
+            offset3d=(spacing, -50, -100),
+            show_footprint=False,
+            only_show=list(only_show),
+            colors=colors,
         )
 
     plotter.set_viewup([0, 10, 0])
@@ -237,6 +254,7 @@ BACKGROUNDS = {"Green": "#9dbe45", "White": "white", "Black": "black"}
 only_show = []
 colour_option = COLOUR_OPTIONS[0]
 background_option = "Green"
+spacing = DEFAULT_SPACING
 
 
 def panel_title(text):
@@ -251,7 +269,7 @@ if st_mode:
     p_canvas, p_subsets, p_overlay, p_settings = st.columns([3, 3, 2, 2])
 
     with p_canvas.container(border=True):
-        panel_title("Canvas")
+        panel_title("3D Canvas")
         c1, c2 = st.columns(2)
         adding_virtualworm_neurons = c1.checkbox(
             "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
@@ -267,7 +285,7 @@ if st_mode:
         )
 
     with p_subsets.container(border=True):
-        panel_title("Subsets")
+        panel_title("Select Subsets")
         group = st.selectbox(
             "Cells to show (NeuroML and VirtualWorm models):",
             list(groups.keys()),
@@ -287,7 +305,7 @@ if st_mode:
             only_show = groups[group]
 
     with p_overlay.container(border=True):
-        panel_title("Overlay")
+        panel_title("Color Overlay")
         colour_option = st.selectbox(
             "Colours to use",
             COLOUR_OPTIONS,
@@ -298,7 +316,7 @@ if st_mode:
         )
 
     with p_settings.container(border=True):
-        panel_title("Settings")
+        panel_title("Display Options")
         background_option = (
             st.segmented_control(
                 "Background",
@@ -309,6 +327,17 @@ if st_mode:
                 help="Background colour of the 3D view",
             )
             or "Green"  # nothing selected (clicking the active option deselects it)
+        )
+        label_col, slider_col = st.columns([1, 2], vertical_alignment="center")
+        label_col.markdown("Worm spacing")
+        spacing = slider_col.slider(
+            "Worm spacing",
+            min_value=0,
+            max_value=DEFAULT_SPACING,
+            value=DEFAULT_SPACING,
+            key="sel_spacing",
+            label_visibility="collapsed",
+            help="Distance between the worms: lower values move them closer together",
         )
 
 # Empty dict -> each model uses its own colors
@@ -322,6 +351,7 @@ selection = (
     tuple(only_show),
     colors,
     BACKGROUNDS[background_option] if st_mode else None,
+    spacing,
 )
 
 if st_mode:
@@ -351,6 +381,7 @@ if st_mode:
             colour_option,
             background_option,
         )
+        view_key += "_sp%d" % spacing
 
         # The panel backend needs no extra dependencies (the default, trame, does)
         stpyvista(plotter, backend="panel", key=view_key)
