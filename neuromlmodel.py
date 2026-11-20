@@ -103,6 +103,79 @@ def load_neuroml_model(filename):
     return nml_doc
 
 
+def _build_cell_mesh(cell, rotation, factor, somas_only):
+    """The mesh of a single Cell, in the viewer's (rotated/scaled) frame"""
+    # accumulate every cylinder/frustum segment's raw geometry here
+    # and build a single PolyData for the whole cell below, rather
+    # than one pv.PolyData()/merge() per segment (each is a VTK
+    # filter call whose fixed overhead dominates for a mesh this
+    # small -- see make_segment's docstring). Spheres (zero-length
+    # somas) are cheap and few (usually one per cell), so they are
+    # kept as separate pieces and merged in once at the end.
+    all_points = []
+    all_normals = []
+    all_faces = []
+    offset = 0
+    sphere_pieces = []
+
+    for seg in cell.morphology.segments:
+        p = cell.get_actual_proximal(seg.id)
+        d = seg.distal
+
+        if somas_only and seg.id != 0:
+            continue
+
+        pointa = tuple(_transform((p.x, p.y, p.z), rotation, factor))
+        pointb = tuple(_transform((d.x, d.y, d.z), rotation, factor))
+
+        if cell.get_segment_length(seg.id) == 0:
+            sphere_pieces.append(make_sphere(pointa, p.diameter * factor / 2))
+        else:
+            pts, faces, normals = make_segment(
+                pointa,
+                pointb,
+                p.diameter * factor / 2,
+                d.diameter * factor / 2,
+                n_sides=15,
+            )
+            all_points.append(pts)
+            all_normals.append(normals)
+            for face in faces:
+                all_faces.append((face[0], *(idx + offset for idx in face[1:])))
+            offset += len(pts)
+
+    pieces = []
+    if all_points:
+        seg_mesh = pv.PolyData(np.vstack(all_points), np.hstack(all_faces))
+        seg_mesh.point_data.active_normals = np.vstack(all_normals).astype(np.float32)
+        pieces.append(seg_mesh)
+    pieces.extend(sphere_pieces)
+
+    # one template mesh per cell type, stamped at every instance position
+    # via a glyph filter instead of copying/translating it per instance.
+    # merge_points=False keeps each segment's own normals distinct at
+    # the joints instead of blending them together.
+    cell_mesh = (
+        pieces[0].merge(pieces[1:], merge_points=False)
+        if len(pieces) > 1
+        else pieces[0]
+    )
+    return cell_mesh
+
+
+def _get_cell_mesh(nml_doc, cell, rotation, factor, somas_only, rotate_xyz):
+    """_build_cell_mesh(), kept on the loaded document: building the geometry is
+    the slow part of adding a model and only depends on the cell and the
+    factor/rotation/somas_only, not on which cells are shown or their color, so
+    repeated adds (e.g. a Streamlit rerun) reuse it. Glyphing it at the
+    instance positions copies it, so the stored mesh is never modified."""
+    cache = nml_doc.__dict__.setdefault("_worm3d_cell_meshes", {})
+    key = (cell.id, factor, rotate_xyz, somas_only)
+    if key not in cache:
+        cache[key] = _build_cell_mesh(cell, rotation, factor, somas_only)
+    return cache[key]
+
+
 def add_neuroml_model(
     plotter,
     nml_doc,
@@ -112,6 +185,7 @@ def add_neuroml_model(
     rotate_y=0.0,
     rotate_z=0.0,
     only_show=[],
+    colors={},
 ):
     """Add the populations/cells of a loaded NeuroML document to the plotter.
 
@@ -120,6 +194,10 @@ def add_neuroml_model(
 
     only_show: list of population ids (cell names, e.g. "ADAL") to show; all
     other populations are omitted. An empty list shows everything.
+
+    colors: dict of population id (cell name) -> color (e.g. an rgb tuple) to
+    use instead of the color from the model. Cells not in the dict (or an
+    empty dict) use the model's color.
     """
     (
         cell_id_vs_cell,
@@ -141,10 +219,13 @@ def add_neuroml_model(
 
         radius = pop_id_vs_radii[pop_id] if pop_id in pop_id_vs_radii else 0.5
 
-        # check if color is set, else use a random rgb color
-        color = (
-            pop_id_vs_color[pop_id] if pop_id in pop_id_vs_color else np.random.rand(3)
-        )
+        # color: given in colors, else set in the model, else a random rgb color
+        if pop_id in colors:
+            color = colors[pop_id]
+        elif pop_id in pop_id_vs_color:
+            color = pop_id_vs_color[pop_id]
+        else:
+            color = np.random.rand(3)
 
         # instance positions of this population, rotated/scaled to viewer axes
         raw_positions = np.array(list(pos_pop.values()), dtype=float)
@@ -157,62 +238,13 @@ def add_neuroml_model(
                 % (len(cell.morphology.segments), len(points))
             )
 
-            # accumulate every cylinder/frustum segment's raw geometry here
-            # and build a single PolyData for the whole cell below, rather
-            # than one pv.PolyData()/merge() per segment (each is a VTK
-            # filter call whose fixed overhead dominates for a mesh this
-            # small -- see make_segment's docstring). Spheres (zero-length
-            # somas) are cheap and few (usually one per cell), so they are
-            # kept as separate pieces and merged in once at the end.
-            all_points = []
-            all_normals = []
-            all_faces = []
-            offset = 0
-            sphere_pieces = []
-
-            for seg in cell.morphology.segments:
-                p = cell.get_actual_proximal(seg.id)
-                d = seg.distal
-
-                if somas_only and seg.id != 0:
-                    continue
-
-                pointa = tuple(_transform((p.x, p.y, p.z), rotation, factor))
-                pointb = tuple(_transform((d.x, d.y, d.z), rotation, factor))
-
-                if cell.get_segment_length(seg.id) == 0:
-                    sphere_pieces.append(make_sphere(pointa, p.diameter * factor / 2))
-                else:
-                    pts, faces, normals = make_segment(
-                        pointa,
-                        pointb,
-                        p.diameter * factor / 2,
-                        d.diameter * factor / 2,
-                        n_sides=15,
-                    )
-                    all_points.append(pts)
-                    all_normals.append(normals)
-                    for face in faces:
-                        all_faces.append((face[0], *(idx + offset for idx in face[1:])))
-                    offset += len(pts)
-
-            pieces = []
-            if all_points:
-                seg_mesh = pv.PolyData(np.vstack(all_points), np.hstack(all_faces))
-                seg_mesh.point_data.active_normals = np.vstack(all_normals).astype(
-                    np.float32
-                )
-                pieces.append(seg_mesh)
-            pieces.extend(sphere_pieces)
-
-            # one template mesh per cell type, stamped at every instance position
-            # via a glyph filter instead of copying/translating it per instance.
-            # merge_points=False keeps each segment's own normals distinct at
-            # the joints instead of blending them together.
-            cell_mesh = (
-                pieces[0].merge(pieces[1:], merge_points=False)
-                if len(pieces) > 1
-                else pieces[0]
+            cell_mesh = _get_cell_mesh(
+                nml_doc,
+                cell,
+                rotation,
+                factor,
+                somas_only,
+                (rotate_x, rotate_y, rotate_z),
             )
             glyphs = point_cloud.glyph(geom=cell_mesh, scale=False, orient=False)
             plotter.add_mesh(glyphs, color=color, smooth_shading=True)

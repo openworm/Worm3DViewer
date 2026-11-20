@@ -8,6 +8,9 @@ import platform
 import shutil
 import subprocess
 import sys
+import zlib
+
+import numpy as np
 
 import pyvista as pv
 
@@ -81,6 +84,13 @@ div[data-testid="stSelectbox"] > div, div[data-testid="stMultiSelect"] > div {
 div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
 div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
   min-height: 1.9rem; background: rgba(255,255,255,0.75); border-radius: 1rem; }
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: rgba(255,255,255,0.22); border-color: rgba(44,67,16,0.35);
+  border-radius: 0.6rem; padding: 0.1rem 0.2rem; }
+.ow-panel-title { font-size: 0.68rem !important; font-weight: 700;
+                  text-transform: uppercase; letter-spacing: 0.06em;
+                  color: var(--ow-dark) !important; margin: 0;
+                  line-height: 1.4; margin-bottom: 0.45rem !important; }
 .ow-footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999;
              background: var(--ow-dark); color: #fff; font-size: 0.72rem;
              padding: 0.35rem 1rem; text-align: right; }
@@ -108,21 +118,6 @@ adding_sibernetic_model = False
 adding_neuroml_model = False
 adding_virtualworm_muscles = False
 adding_virtualworm_neurons = True
-
-if st_mode:
-    cols = st.columns(4)
-    adding_virtualworm_neurons = cols[0].checkbox(
-        "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
-    )
-    adding_virtualworm_muscles = cols[1].checkbox(
-        "VirtualWorm muscles", value=adding_virtualworm_muscles, key="cb_vw_muscles"
-    )
-    adding_neuroml_model = cols[2].checkbox(
-        "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
-    )
-    adding_sibernetic_model = cols[3].checkbox(
-        "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
-    )
 
 
 spacing = 50
@@ -168,13 +163,21 @@ def get_cell_groups(nml_file):
     }, ids
 
 
-def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
+def build_scene(
+    sibernetic,
+    neuroml,
+    vw_muscles,
+    vw_neurons,
+    only_show=(),
+    colors={},
+    background=None,
+):
     """Build a plotter containing the selected models"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
     # on-screen rendering (e.g. Cocoa on macOS) aborts
     plotter = pv.Plotter(window_size=[800, 800], off_screen=st_mode)
-    if st_mode:
-        plotter.set_background("#9dbe45")  # match the page (OpenWorm green)
+    if background:
+        plotter.set_background(background)
 
     if vw_neurons:
         print_("Adding VirtualWorm neurons...")
@@ -183,6 +186,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
             get_virtualworm_neurons(),
             translate=((-0.8 * spacing - (vw_muscles * spacing)), 0, 0),
             only_show=list(only_show),
+            colors=colors,
         )
 
     if vw_muscles:
@@ -192,6 +196,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
             get_virtualworm_muscles(),
             translate=(-1 * spacing, 0, 0),
             only_show=list(only_show),
+            colors=colors,
         )
 
     if neuroml:
@@ -203,6 +208,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
             factor=0.2,
             rotate_x=-90,
             only_show=list(only_show),
+            colors=colors,
         )  # at 0...
 
     if sibernetic:
@@ -215,26 +221,98 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
     return plotter
 
 
+def random_colors(names):
+    """A dict of a random (but repeatable for a given name) rgb color per name"""
+    return {
+        name: tuple(np.random.default_rng(zlib.crc32(name.encode())).random(3))
+        for name in names
+    }
+
+
+COLOUR_OPTIONS = ["Default", "Random"]
+
+# Background of the 3D view; green matches the page (OpenWorm green)
+BACKGROUNDS = {"Green": "#9dbe45", "White": "white", "Black": "black"}
+
 only_show = []
+colour_option = COLOUR_OPTIONS[0]
+background_option = "Green"
+
+
+def panel_title(text):
+    st.markdown('<p class="ow-panel-title">%s</p>' % text, unsafe_allow_html=True)
+
+
 if st_mode:
     groups, all_cell_ids = get_cell_groups(NEUROML_FILE)
-    group = st.selectbox(
-        "Cells to show (NeuroML and VirtualWorm models):",
-        list(groups.keys()),
-        key="sel_cell_group",
-        label_visibility="collapsed",
-        help="Which cells to show, applied to the NeuroML and VirtualWorm models",
-    )
-    if groups[group] is None:
-        only_show = st.multiselect(
-            "Choose cells:",
-            all_cell_ids,
-            default=["AVAL", "AVAR"],
-            key="sel_cells",
-            label_visibility="collapsed",
+
+    # Control panels, in the order they are intended to be used:
+    # what to show (Canvas), which cells (Subsets), colours (Overlay), Settings
+    p_canvas, p_subsets, p_overlay, p_settings = st.columns([3, 3, 2, 2])
+
+    with p_canvas.container(border=True):
+        panel_title("Canvas")
+        c1, c2 = st.columns(2)
+        adding_virtualworm_neurons = c1.checkbox(
+            "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
         )
-    else:
-        only_show = groups[group]
+        adding_virtualworm_muscles = c2.checkbox(
+            "VirtualWorm muscles", value=adding_virtualworm_muscles, key="cb_vw_muscles"
+        )
+        adding_neuroml_model = c1.checkbox(
+            "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
+        )
+        adding_sibernetic_model = c2.checkbox(
+            "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
+        )
+
+    with p_subsets.container(border=True):
+        panel_title("Subsets")
+        group = st.selectbox(
+            "Cells to show (NeuroML and VirtualWorm models):",
+            list(groups.keys()),
+            key="sel_cell_group",
+            label_visibility="collapsed",
+            help="Which cells to show, applied to the NeuroML and VirtualWorm models",
+        )
+        if groups[group] is None:
+            only_show = st.multiselect(
+                "Choose cells:",
+                all_cell_ids,
+                default=["AVAL", "AVAR"],
+                key="sel_cells",
+                label_visibility="collapsed",
+            )
+        else:
+            only_show = groups[group]
+
+    with p_overlay.container(border=True):
+        panel_title("Overlay")
+        colour_option = st.selectbox(
+            "Colours to use",
+            COLOUR_OPTIONS,
+            key="sel_colours",
+            label_visibility="collapsed",
+            help="Colours to use: Default = those in each loaded model; "
+            "Random = a random colour for each named cell",
+        )
+
+    with p_settings.container(border=True):
+        panel_title("Settings")
+        background_option = (
+            st.segmented_control(
+                "Background",
+                list(BACKGROUNDS),
+                default="Green",
+                key="sel_background",
+                label_visibility="collapsed",
+                help="Background colour of the 3D view",
+            )
+            or "Green"  # nothing selected (clicking the active option deselects it)
+        )
+
+# Empty dict -> each model uses its own colors
+colors = random_colors(all_cell_ids) if colour_option == "Random" else {}
 
 selection = (
     adding_sibernetic_model,
@@ -242,6 +320,8 @@ selection = (
     adding_virtualworm_muscles,
     adding_virtualworm_neurons,
     tuple(only_show),
+    colors,
+    BACKGROUNDS[background_option] if st_mode else None,
 )
 
 if st_mode:
@@ -266,10 +346,18 @@ if st_mode:
             adding_virtualworm_muscles,
             adding_virtualworm_neurons,
         )
-        view_key += "_%d" % hash(tuple(only_show))
+        view_key += "_%d_%s_%s" % (
+            hash(tuple(only_show)),
+            colour_option,
+            background_option,
+        )
 
         # The panel backend needs no extra dependencies (the default, trame, does)
         stpyvista(plotter, backend="panel", key=view_key)
+        # The scene is exported to the browser by now. Close the plotter, as a
+        # new one is built on every rerun and would otherwise be left holding
+        # its render window and meshes.
+        plotter.close()
     pass
 else:
     plotter.show()
