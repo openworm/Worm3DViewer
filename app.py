@@ -1,4 +1,4 @@
-from neuromlmodel import add_neuroml_model  # noqa: F401
+from neuromlmodel import add_neuroml_model, load_neuroml_model  # noqa: F401
 from SiberneticReplay import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
 from virtualworm import add_virtualworm_neurons  # noqa: F401
@@ -92,7 +92,7 @@ div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
 
     st.markdown(
         '<p class="ow-title">OpenWorm 3D Viewer<span> 3D viewer'
-        "for <i>C. elegans</i> models and datasets</span></p>",
+        " for <i>C. elegans</i> models and datasets</span></p>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -128,6 +128,16 @@ if st_mode:
 spacing = 50
 
 NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
+
+
+# The loaded NeuroML document is read once and then kept by Streamlit, so
+# changing the cell selection only re-adds cells to a new plotter. The document
+# is not modified when adding it to a plotter, so sharing it is safe.
+get_neuroml_doc = (
+    st.cache_resource(show_spinner=False)(load_neuroml_model)
+    if st_mode
+    else load_neuroml_model
+)
 
 
 def get_cell_groups(nml_file):
@@ -181,7 +191,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
         print_("Adding NeuroML model...")
         add_neuroml_model(
             plotter,
-            "NeuroML2/c302_D_Full.net.nml",
+            get_neuroml_doc(NEUROML_FILE),
             somas_only=False,
             factor=0.2,
             rotate_x=-90,

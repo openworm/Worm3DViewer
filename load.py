@@ -1,7 +1,7 @@
 import pyvista as pv
 import sys
 
-from neuromlmodel import add_neuroml_model  # noqa: F401
+from neuromlmodel import add_neuroml_model, load_neuroml_model  # noqa: F401
 from SiberneticReplay import add_sibernetic_model  # noqa: F401
 from virtualworm import add_virtualworm_muscles  # noqa: F401
 from virtualworm import add_virtualworm_neurons  # noqa: F401
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     )
     add_neuroml_model(
         plotter,
-        "NeuroML2/c302_D_Full.net.nml",
+        load_neuroml_model("NeuroML2/c302_D_Full.net.nml"),
         somas_only=False,
         factor=0.2,
         rotate_x=-90,
