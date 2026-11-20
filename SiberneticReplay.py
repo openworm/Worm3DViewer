@@ -5,6 +5,7 @@ Loads in the generated position_buffer.txt file
 
 """
 
+import json
 import pyvista as pv
 import sys
 import os
@@ -18,6 +19,11 @@ from enum import Enum
 
 last_meshes = {}
 last_actors = {}
+
+# Per point type: which of its points to show (bool array, or None for all) and
+# the color of each shown point (uint8 rgb array, or None for the type's color)
+particle_keep = {}
+particle_rgb = {}
 
 show_liquid = True
 show_elastic = True
@@ -326,6 +332,95 @@ def add_body_curvature_chart(sim_dir, pl, duration=None):
     )
 
 
+def _setup_particle_selection(sim, muscle_map_file, only_show, colors):
+    """Work out, per point type, which points to show and how to color them,
+    from named muscles. See add_sibernetic_model() for only_show and colors.
+
+    Each logged frame lists the particles in the same order as the
+    configuration file (elastic first), so the particle indices in the muscle
+    map (see sibernetic_muscles.py) are the indices of the lines in a frame.
+    """
+    global particle_keep, particle_rgb
+    particle_keep = {}
+    particle_rgb = {}
+
+    if not only_show and not colors:
+        return
+
+    if not os.path.isfile(muscle_map_file):
+        print_(
+            f"Muscle map file {muscle_map_file} not found, ignoring only_show/colors"
+        )
+        return
+
+    with open(muscle_map_file) as f:
+        muscles = json.load(f)["muscles"]
+
+    frame_types = np.array(sim.all_point_types[0])
+    n_particles = len(frame_types)
+
+    # Check the map is for the same particles: compare the first logged frame
+    # with the positions stored in the map
+    points0 = {t: np.asarray(p) for t, p in sim.all_3D_points[0].items()}
+    position_of = {}
+    for t, pts in points0.items():
+        for i, pt in zip(np.where(frame_types == t)[0], pts):
+            position_of[int(i)] = pt[[1, 0, 2]] if sim.swap_y_z else pt
+    max_diff = 0.0
+    for info in muscles.values():
+        for p, xyz in info["positions"].items():
+            max_diff = max(max_diff, np.abs(position_of[int(p)] - np.array(xyz)).max())
+    if max_diff > 0.01:
+        print_(
+            f"WARNING: particle positions differ from those in {muscle_map_file} "
+            f"by up to {max_diff}, so muscles may not be shown correctly"
+        )
+
+    selected = np.zeros(n_particles, dtype=bool)
+    if only_show:
+        for name in only_show:
+            if name in muscles:
+                selected[muscles[name]["particles"]] = True
+    else:
+        selected[:] = True
+
+    override_rgb = np.zeros((n_particles, 3), dtype=np.uint8)
+    overridden = np.zeros(n_particles, dtype=bool)
+    for name, color in colors.items():
+        if name in muscles:
+            particles = muscles[name]["particles"]
+            override_rgb[particles] = pv.Color(color).int_rgb
+            overridden[particles] = True
+
+    for type_ in np.unique(frame_types):
+        type_ = float(type_)
+        indices = np.where(frame_types == type_)[0]
+        _, info, _ = get_color_info_for_type(type_)
+
+        if "boundary" in info:
+            continue  # not affected
+        if "liquid" in info:
+            # liquid has no named parts: shown only if everything is shown
+            keep = np.full(len(indices), not only_show)
+        else:
+            keep = selected[indices]
+
+        particle_keep[type_] = keep
+        if overridden[indices].any():
+            rgb = np.tile(
+                np.array(pv.Color(get_color_info_for_type(type_)[0]).int_rgb),
+                (len(indices), 1),
+            ).astype(np.uint8)
+            rgb[overridden[indices]] = override_rgb[indices][overridden[indices]]
+            particle_rgb[type_] = rgb[keep]
+
+    shown = sum(int(k.sum()) for k in particle_keep.values())
+    print_(
+        f"Showing {shown} of the elastic/liquid particles, muscles named: "
+        f"{len(only_show) if only_show else 'all'}, colored: {len(colors)}"
+    )
+
+
 def add_sibernetic_model(
     pl,
     position_file="Sibernetic/position_buffer.txt",
@@ -335,10 +430,27 @@ def add_sibernetic_model(
     include_boundary=False,
     show_footprint=True,
     downsample_override=None,
+    only_show=[],
+    colors={},
+    muscle_map_file="Sibernetic/muscle_particles_worm_alone_half_resolution.json",
 ):
+    """Add a replay of a Sibernetic simulation to the plotter.
+
+    only_show: list of muscle names (e.g. "MDL01") whose particles are shown;
+    everything else (the rest of the body and the liquid) is omitted. An empty
+    list shows everything. Names that are not muscles (e.g. neurons) are ignored.
+
+    colors: dict of muscle name -> color for the particles of that muscle (the
+    particles at the ends of adjacent muscles are shared, so the last muscle in
+    the dict wins there). Other particles keep their default color.
+
+    muscle_map_file: JSON mapping muscle names to particle indices, made by
+    sibernetic_muscles.py for the configuration the simulation started from.
+    """
     global \
         sim_positions, \
         last_meshes, \
+        last_actors, \
         plotter, \
         offset3d_, \
         slider, \
@@ -368,6 +480,12 @@ def add_sibernetic_model(
         swap_y_z=swap_y_z,
         load_traces=True,
     )
+
+    # Start from scratch: the meshes/actors of any earlier call (e.g. a previous
+    # Streamlit rerun, which keeps this module loaded) belong to another plotter
+    last_meshes.clear()
+    last_actors.clear()
+    _setup_particle_selection(sim_positions, muscle_map_file, only_show, colors)
 
     if sim_positions.has_worm_data():
         add_muscle_activation_chart(sim_positions.sim_dir, pl, sim_positions.duration)
@@ -727,17 +845,26 @@ def create_mesh(time_index):
                 % (len(curr_points), type_, info, color, size)
             )
 
+        keep = particle_keep.get(type_)
+        if keep is not None:
+            curr_points = np.asarray(curr_points)[keep]
+
         if len(curr_points) == 0:
             continue
         if type_ not in last_meshes:
             last_meshes[type_] = pv.PolyData(curr_points)
             last_meshes[type_].translate(offset3d_, inplace=True)
 
+            rgb = particle_rgb.get(type_)
+            if rgb is None:
+                color_args = {"color": color}
+            else:
+                color_args = {"scalars": rgb, "rgb": True}
             actor = plotter.add_mesh(
                 last_meshes[type_],
                 render_points_as_spheres=True,
                 point_size=size,
-                color=color,
+                **color_args,
             )
             last_actors[type_] = actor
             if "liquid" in info and not show_liquid:
