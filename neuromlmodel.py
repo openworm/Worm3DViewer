@@ -152,7 +152,10 @@ def add_neuroml_model(
         point_cloud = pv.PolyData(points)
 
         if isinstance(cell, Cell):
-            print("Loading a cell with %i segments" % len(cell.morphology.segments))
+            print(
+                "Adding a cell with %i segments, which will be added %i time(s)"
+                % (len(cell.morphology.segments), len(points))
+            )
 
             # accumulate every cylinder/frustum segment's raw geometry here
             # and build a single PolyData for the whole cell below, rather

@@ -59,16 +59,18 @@ def _base_name(name):
     return re.sub(r"_\d+$", "", name)
 
 
-def read_obj_objects(obj_file, only_show=[]):
-    """Yield (standardised name, pv.PolyData) for each `o` object in obj_file.
+def read_obj_objects(obj_file):
+    """Return a list of (standardised name, pv.PolyData) for each `o` object in
+    obj_file.
 
     This parses the file directly instead of using trimesh: with trimesh 5.x
     split_object=True gives every object the name of the first one (ALNR,
     ALNR_1, ...) so the real cell names are lost. In these files each object
     has its own `v` lines, while `f` indices are global to the file.
 
-    If only_show is not empty, objects whose name (or base name, see
-    _base_name) is not in it are skipped without being parsed.
+    The meshes are in the file's own coordinates (they are not scaled or
+    moved), so the result can be kept and passed to add_named_objects() many
+    times.
     """
     with open(obj_file, "rb") as f:
         data = f.read()
@@ -76,6 +78,7 @@ def read_obj_objects(obj_file, only_show=[]):
     blocks = data.split(b"\no ")
     n_vertices_before = blocks[0].count(b"\nv ") + blocks[0].startswith(b"v ")
 
+    objects = []
     for block in blocks[1:]:
         n_v = block.count(b"\nv ")
         offset = n_vertices_before
@@ -83,8 +86,6 @@ def read_obj_objects(obj_file, only_show=[]):
 
         lines = block.split(b"\n")
         name = standardise_name(lines[0].decode())
-        if only_show and _base_name(name) not in only_show and name not in only_show:
-            continue
 
         points = np.array(
             b" ".join(ln[2:] for ln in lines if ln.startswith(b"v ")).split(),
@@ -98,13 +99,16 @@ def read_obj_objects(obj_file, only_show=[]):
                 for i in range(1, len(idx) - 1):  # fan triangulation
                     tris.append((3, idx[0], idx[i], idx[i + 1]))
 
-        yield name, pv.PolyData(points, np.array(tris, dtype=np.int64).ravel())
+        objects.append(
+            (name, pv.PolyData(points, np.array(tris, dtype=np.int64).ravel()))
+        )
+    return objects
 
 
 def add_named_objects(
-    plotter, obj_file, scale=20, translate=(0, 0, 0), only_show=[], **mesh_kwargs
+    plotter, objects, scale=20, translate=(0, 0, 0), only_show=[], **mesh_kwargs
 ):
-    """Load obj_file preserving its named `o object_name` groups, adding
+    """Add objects (from read_obj_objects()) preserving their names, adding
     each as its own actor (keyed by that name) instead of merging
     everything into one mesh -- so individual objects can be shown/hidden
     later via plotter.actors[name].visibility = False/True.
@@ -134,23 +138,37 @@ def add_named_objects(
     "MDL01" (including all numbered parts of that cell); all other objects
     are omitted. An empty list shows everything.
 
+    objects are not modified.
+
     Returns a dict of {name: Actor}.
     """
     translate = np.asarray(translate)
     actors = {}
-    for name, mesh in read_obj_objects(obj_file, only_show=only_show):
-        mesh.points = mesh.points * scale + translate
+    for name, obj_mesh in objects:
+        if only_show and _base_name(name) not in only_show and name not in only_show:
+            continue
+        # a new mesh, so the loaded objects can be reused for other plotters
+        mesh = pv.PolyData(obj_mesh.points * scale + translate, obj_mesh.faces)
         actor = plotter.add_mesh(mesh, color=get_color_for_object(name), **mesh_kwargs)
         actor.name = name
         actors[name] = actor
     return actors
 
 
-def add_virtualworm_muscles(plotter, scale=20, translate=(-40, 0, 0), only_show=[]):
-    print("Adding virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
+def load_virtualworm_muscles():
+    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles()"""
+    print("Loading virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
+    return read_obj_objects(BODY_WALL_MUSCLE_OBJ_FILE)
+
+
+def add_virtualworm_muscles(
+    plotter, objects, scale=20, translate=(-40, 0, 0), only_show=[]
+):
+    """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
+    print("Adding virtual worm muscles...")
     return add_named_objects(
         plotter,
-        BODY_WALL_MUSCLE_OBJ_FILE,
+        objects,
         scale=scale,
         translate=translate,
         only_show=only_show,
@@ -158,11 +176,20 @@ def add_virtualworm_muscles(plotter, scale=20, translate=(-40, 0, 0), only_show=
     )
 
 
-def add_virtualworm_neurons(plotter, scale=20, translate=(-80, 0, 0), only_show=[]):
-    print("Adding virtual worm file %s..." % NEURONS_OBJ_FILE)
+def load_virtualworm_neurons():
+    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons()"""
+    print("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
+    return read_obj_objects(NEURONS_OBJ_FILE)
+
+
+def add_virtualworm_neurons(
+    plotter, objects, scale=20, translate=(-80, 0, 0), only_show=[]
+):
+    """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
+    print("Adding virtual worm neurons...")
     return add_named_objects(
         plotter,
-        NEURONS_OBJ_FILE,
+        objects,
         scale=scale,
         translate=translate,
         only_show=only_show,
@@ -181,8 +208,8 @@ def print_picked_name(actor):
 if __name__ == "__main__":
     pl = pv.Plotter()
 
-    add_virtualworm_muscles(pl)
-    add_virtualworm_neurons(pl)
+    add_virtualworm_muscles(pl, load_virtualworm_muscles())
+    add_virtualworm_neurons(pl, load_virtualworm_neurons())
 
     pl.enable_mesh_picking(
         callback=print_picked_name,
