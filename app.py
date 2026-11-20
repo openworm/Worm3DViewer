@@ -11,7 +11,7 @@ import sys
 
 import pyvista as pv
 
-version = "v0.3.1"
+version = "v0.3.5"
 
 stpyvista_version = "0.1.4"
 
@@ -68,8 +68,8 @@ header[data-testid="stHeader"] { display: none; }
 .block-container { padding: 0.6rem 1rem 2.6rem 1rem; max-width: 100%; }
 div[data-testid="stVerticalBlock"] { gap: 0.35rem; }
 div[data-testid="stHorizontalBlock"] { gap: 0.5rem; }
-.ow-title { color: #fff; font-size: 1.15rem; font-weight: 600; margin: 0;
-            line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.ow-title { color: #fff; font-size: 1.25rem; font-weight: 600; margin: 0;
+            line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
 .ow-title span { font-size: 0.75rem; font-weight: 400; margin-left: 0.6rem;
                  opacity: 0.9; }
 .stApp p, .stApp label, .stApp [data-testid="stWidgetLabel"] p {
@@ -91,8 +91,8 @@ div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
     )
 
     st.markdown(
-        '<p class="ow-title">OpenWorm 3D Viewer<span>%s &middot; 3D viewer for '
-        "OpenWorm <i>C. elegans</i> models and datasets</span></p>" % version,
+        '<p class="ow-title">OpenWorm 3D Viewer<span> 3D viewer'
+        "for <i>C. elegans</i> models and datasets</span></p>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -159,7 +159,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
     """Build a plotter containing the selected models"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
     # on-screen rendering (e.g. Cocoa on macOS) aborts
-    plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
+    plotter = pv.Plotter(window_size=[800, 800], off_screen=st_mode)
     if st_mode:
         plotter.set_background("#9dbe45")  # match the page (OpenWorm green)
 
