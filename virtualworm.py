@@ -89,7 +89,7 @@ def read_obj_objects(obj_file):
 
         points = np.array(
             b" ".join(ln[2:] for ln in lines if ln.startswith(b"v ")).split(),
-            dtype=float,
+            dtype=np.float32,  # half the memory (and size sent to the browser)
         ).reshape(-1, 3)
 
         tris = []
@@ -106,7 +106,13 @@ def read_obj_objects(obj_file):
 
 
 def add_named_objects(
-    plotter, objects, scale=20, translate=(0, 0, 0), only_show=[], **mesh_kwargs
+    plotter,
+    objects,
+    scale=20,
+    translate=(0, 0, 0),
+    only_show=[],
+    colors={},
+    **mesh_kwargs,
 ):
     """Add objects (from read_obj_objects()) preserving their names, adding
     each as its own actor (keyed by that name) instead of merging
@@ -138,18 +144,25 @@ def add_named_objects(
     "MDL01" (including all numbered parts of that cell); all other objects
     are omitted. An empty list shows everything.
 
+    colors: dict of cell name -> color to use instead of the default color for
+    that object (a cell's numbered parts, e.g. MVL22_81, use the color of MVL22).
+    Cells not in the dict (or an empty dict) get the default color.
+
     objects are not modified.
 
     Returns a dict of {name: Actor}.
     """
-    translate = np.asarray(translate)
+    translate = np.asarray(translate, dtype=np.float32)
     actors = {}
     for name, obj_mesh in objects:
         if only_show and _base_name(name) not in only_show and name not in only_show:
             continue
         # a new mesh, so the loaded objects can be reused for other plotters
         mesh = pv.PolyData(obj_mesh.points * scale + translate, obj_mesh.faces)
-        actor = plotter.add_mesh(mesh, color=get_color_for_object(name), **mesh_kwargs)
+        color = colors.get(name, colors.get(_base_name(name)))
+        if color is None:
+            color = get_color_for_object(name)
+        actor = plotter.add_mesh(mesh, color=color, **mesh_kwargs)
         actor.name = name
         actors[name] = actor
     return actors
@@ -162,7 +175,7 @@ def load_virtualworm_muscles():
 
 
 def add_virtualworm_muscles(
-    plotter, objects, scale=20, translate=(-40, 0, 0), only_show=[]
+    plotter, objects, scale=20, translate=(-40, 0, 0), only_show=[], colors={}
 ):
     """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
     print("Adding virtual worm muscles...")
@@ -172,6 +185,7 @@ def add_virtualworm_muscles(
         scale=scale,
         translate=translate,
         only_show=only_show,
+        colors=colors,
         smooth_shading=True,
     )
 
@@ -183,7 +197,7 @@ def load_virtualworm_neurons():
 
 
 def add_virtualworm_neurons(
-    plotter, objects, scale=20, translate=(-80, 0, 0), only_show=[]
+    plotter, objects, scale=20, translate=(-80, 0, 0), only_show=[], colors={}
 ):
     """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
     print("Adding virtual worm neurons...")
@@ -193,6 +207,7 @@ def add_virtualworm_neurons(
         scale=scale,
         translate=translate,
         only_show=only_show,
+        colors=colors,
         smooth_shading=True,
     )
 
