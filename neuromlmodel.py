@@ -103,7 +103,13 @@ def add_neuroml_model(
     rotate_x=0.0,
     rotate_y=0.0,
     rotate_z=0.0,
+    only_show=[],
 ):
+    """Add the populations/cells of a NeuroML file to the plotter.
+
+    only_show: list of population ids (cell names, e.g. "ADAL") to show; all
+    other populations are omitted. An empty list shows everything.
+    """
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
 
     print("Loaded NeuroML file: %s" % filename)
@@ -119,6 +125,9 @@ def add_neuroml_model(
     rotation = _rotation_matrix(rotate_x, rotate_y, rotate_z)
 
     for pop_id, cell in pop_id_vs_cell.items():
+        if only_show and pop_id not in only_show:
+            continue
+
         pos_pop = positions[pop_id]  # type: typing.Dict[typing.Any, typing.List[float]]
 
         print("Pop: %s has %i of component %s" % (pop_id, len(pos_pop), cell.id))

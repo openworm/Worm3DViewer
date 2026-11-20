@@ -1,9 +1,9 @@
 import numpy as np
 import pyvista as pv
-import trimesh
 
 from cect.Cells import is_known_cell, cell_notes
 
+import re
 import sys
 
 BODY_WALL_MUSCLE_OBJ_FILE = "bwm.obj"
@@ -54,7 +54,56 @@ def get_color_for_object(name):
     return np.random.rand(3)
 
 
-def add_named_objects(plotter, obj_file, scale=20, translate=(0, 0, 0), **mesh_kwargs):
+def _base_name(name):
+    """A cell can be split over several objects, e.g. ALNR_1, MVL22_81"""
+    return re.sub(r"_\d+$", "", name)
+
+
+def read_obj_objects(obj_file, only_show=[]):
+    """Yield (standardised name, pv.PolyData) for each `o` object in obj_file.
+
+    This parses the file directly instead of using trimesh: with trimesh 5.x
+    split_object=True gives every object the name of the first one (ALNR,
+    ALNR_1, ...) so the real cell names are lost. In these files each object
+    has its own `v` lines, while `f` indices are global to the file.
+
+    If only_show is not empty, objects whose name (or base name, see
+    _base_name) is not in it are skipped without being parsed.
+    """
+    with open(obj_file, "rb") as f:
+        data = f.read()
+
+    blocks = data.split(b"\no ")
+    n_vertices_before = blocks[0].count(b"\nv ") + blocks[0].startswith(b"v ")
+
+    for block in blocks[1:]:
+        n_v = block.count(b"\nv ")
+        offset = n_vertices_before
+        n_vertices_before += n_v
+
+        lines = block.split(b"\n")
+        name = standardise_name(lines[0].decode())
+        if only_show and _base_name(name) not in only_show and name not in only_show:
+            continue
+
+        points = np.array(
+            b" ".join(ln[2:] for ln in lines if ln.startswith(b"v ")).split(),
+            dtype=float,
+        ).reshape(-1, 3)
+
+        tris = []
+        for ln in lines:
+            if ln.startswith(b"f "):
+                idx = [int(t.split(b"/")[0]) - 1 - offset for t in ln.split()[1:]]
+                for i in range(1, len(idx) - 1):  # fan triangulation
+                    tris.append((3, idx[0], idx[i], idx[i + 1]))
+
+        yield name, pv.PolyData(points, np.array(tris, dtype=np.int64).ravel())
+
+
+def add_named_objects(
+    plotter, obj_file, scale=20, translate=(0, 0, 0), only_show=[], **mesh_kwargs
+):
     """Load obj_file preserving its named `o object_name` groups, adding
     each as its own actor (keyed by that name) instead of merging
     everything into one mesh -- so individual objects can be shown/hidden
@@ -63,8 +112,8 @@ def add_named_objects(plotter, obj_file, scale=20, translate=(0, 0, 0), **mesh_k
     pv.read() (VTK's OBJ reader) both merges every `o` group into a
     single mesh, discarding the names, and doesn't weld shared vertices
     between face corners, so it also uses ~4x the points a properly
-    indexed mesh needs. trimesh preserves the named groups and reads
-    vertices as actually indexed in the file.
+    indexed mesh needs. read_obj_objects parses the file itself, keeping the named groups and
+    the vertices as actually indexed in the file.
 
     add_mesh(..., name=name) is deliberately avoided: passing a name
     makes it call remove_actor(name) first, to replace any existing
@@ -81,43 +130,42 @@ def add_named_objects(plotter, obj_file, scale=20, translate=(0, 0, 0), **mesh_k
     effect of both is just points * scale + translate -- one numpy op
     instead of two filter executions.
 
+    only_show: list of (standardised) cell names to show, e.g. "AVAL" or
+    "MDL01" (including all numbered parts of that cell); all other objects
+    are omitted. An empty list shows everything.
+
     Returns a dict of {name: Actor}.
     """
-    scene = trimesh.load(
-        obj_file, process=False, group_material=False, split_object=True
-    )
     translate = np.asarray(translate)
     actors = {}
-    for name, geom in scene.geometry.items():
-        mesh = pv.wrap(geom)
+    for name, mesh in read_obj_objects(obj_file, only_show=only_show):
         mesh.points = mesh.points * scale + translate
-        new_name = standardise_name(name)
-        actor = plotter.add_mesh(
-            mesh, color=get_color_for_object(new_name), **mesh_kwargs
-        )
-        actor.name = new_name
-        actors[new_name] = actor
+        actor = plotter.add_mesh(mesh, color=get_color_for_object(name), **mesh_kwargs)
+        actor.name = name
+        actors[name] = actor
     return actors
 
 
-def add_virtualworm_muscles(plotter, scale=20, translate=(-40, 0, 0)):
+def add_virtualworm_muscles(plotter, scale=20, translate=(-40, 0, 0), only_show=[]):
     print("Adding virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
     return add_named_objects(
         plotter,
         BODY_WALL_MUSCLE_OBJ_FILE,
         scale=scale,
         translate=translate,
+        only_show=only_show,
         smooth_shading=True,
     )
 
 
-def add_virtualworm_neurons(plotter, scale=20, translate=(-80, 0, 0)):
+def add_virtualworm_neurons(plotter, scale=20, translate=(-80, 0, 0), only_show=[]):
     print("Adding virtual worm file %s..." % NEURONS_OBJ_FILE)
     return add_named_objects(
         plotter,
         NEURONS_OBJ_FILE,
         scale=scale,
         translate=translate,
+        only_show=only_show,
         smooth_shading=True,
     )
 

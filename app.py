@@ -11,7 +11,7 @@ import sys
 
 import pyvista as pv
 
-version = "v0.3.1"
+version = "v0.3.5"
 
 stpyvista_version = "0.1.4"
 
@@ -58,25 +58,58 @@ if st_mode:
         start_xvfb()
         st.session_state.IS_XVFB_RUNNING = True
 
-    st.title("OpenWorm 3D Viewer (%s)" % version)
+    # Compact, OpenWorm Browser-like look: green page, small text, tight spacing
+    st.markdown(
+        """
+<style>
+:root { --ow-green: #9dbe45; --ow-dark: #4c6a22; --ow-text: #2c4310; }
+header[data-testid="stHeader"] { display: none; }
+.stApp { background: var(--ow-green); }
+.block-container { padding: 0.6rem 1rem 2.6rem 1rem; max-width: 100%; }
+div[data-testid="stVerticalBlock"] { gap: 0.35rem; }
+div[data-testid="stHorizontalBlock"] { gap: 0.5rem; }
+.ow-title { color: #fff; font-size: 1.25rem; font-weight: 600; margin: 0;
+            line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.ow-title span { font-size: 0.75rem; font-weight: 400; margin-left: 0.6rem;
+                 opacity: 0.9; }
+.stApp p, .stApp label, .stApp [data-testid="stWidgetLabel"] p {
+  font-size: 0.78rem; margin: 0; color: var(--ow-text); }
+div[data-testid="stCheckbox"] { min-height: 0; }
+div[data-testid="stCheckbox"] label { gap: 0.3rem; }
+div[data-testid="stSelectbox"] > div, div[data-testid="stMultiSelect"] > div {
+  font-size: 0.78rem; }
+div[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+  min-height: 1.9rem; background: rgba(255,255,255,0.75); border-radius: 1rem; }
+.ow-footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999;
+             background: var(--ow-dark); color: #fff; font-size: 0.72rem;
+             padding: 0.35rem 1rem; text-align: right; }
+.ow-footer a { color: var(--ow-green); text-decoration: none; }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
 
     st.markdown(
-        "This is a 3D viewer for a number of OpenWorm _C. elegans_ models and datasets. It uses PyVista for rendering..."
+        '<p class="ow-title">OpenWorm 3D Viewer<span> 3D viewer'
+        "for <i>C. elegans</i> models and datasets</span></p>",
+        unsafe_allow_html=True,
     )
     st.markdown(
-        "Using pyvista %s, stpyvista %s, and streamlit %s"
-        % (pv.__version__, stpyvista_version, st.__version__)
+        '<div class="ow-footer">OpenWorm 3D Viewer %s &middot; pyvista v%s, '
+        "stpyvista v%s, streamlit v%s</div>"
+        % (version, pv.__version__, stpyvista_version, st.__version__),
+        unsafe_allow_html=True,
     )
 
 ## Default selection of models to show (the checkboxes below override these
 ## in Streamlit mode)
 adding_sibernetic_model = False
-adding_neuroml_model = False
-adding_virtualworm_muscles = True
+adding_neuroml_model = True
+adding_virtualworm_muscles = False
 adding_virtualworm_neurons = False
 
 if st_mode:
-    st.markdown("**Select the WORM models to view:**")
     cols = st.columns(4)
     adding_virtualworm_neurons = cols[0].checkbox(
         "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
@@ -94,17 +127,54 @@ if st_mode:
 
 spacing = 50
 
+NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
 
-def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons):
+
+def get_cell_groups(nml_file):
+    """Groups of cell names (present in the NeuroML file) to select from.
+    An empty list means "all cells"."""
+    import re
+
+    import cect.Cells as cells
+
+    with open(nml_file) as f:
+        ids = re.findall(r'<population id="([^"]*)"', f.read())
+
+    def present(names):
+        return [i for i in ids if i in names]
+
+    return {
+        "All cells": [],
+        "Only muscles": [i for i in ids if cells.is_known_muscle(i)],
+        "Only neurons": [i for i in ids if cells.is_any_neuron(i)],
+        "Sensory neurons": present(cells.SENSORY_NEURONS_COOK),
+        "Interneurons": present(cells.INTERNEURONS_COOK),
+        "Motor neurons": present(cells.MOTORNEURONS_COOK),
+        "Pharyngeal neurons": present(cells.PHARYNGEAL_NEURONS),
+        "Specific cells...": None,
+    }, ids
+
+
+def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
     """Build a plotter containing the selected models"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
     # on-screen rendering (e.g. Cocoa on macOS) aborts
-    plotter = pv.Plotter(window_size=[800, 600], off_screen=st_mode)
+    plotter = pv.Plotter(window_size=[800, 800], off_screen=st_mode)
+    if st_mode:
+        plotter.set_background("#9dbe45")  # match the page (OpenWorm green)
 
-    if sibernetic:
-        print_("Adding Sibernetic model...")
-        add_sibernetic_model(
-            plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+    if vw_neurons:
+        print_("Adding VirtualWorm neurons...")
+        add_virtualworm_neurons(
+            plotter,
+            translate=((-0.8 * spacing - (vw_muscles * spacing)), 0, 0),
+            only_show=list(only_show),
+        )
+
+    if vw_muscles:
+        print_("Adding VirtualWorm muscles...")
+        add_virtualworm_muscles(
+            plotter, translate=(-1 * spacing, 0, 0), only_show=list(only_show)
         )
 
     if neuroml:
@@ -115,25 +185,46 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons):
             somas_only=False,
             factor=0.2,
             rotate_x=-90,
+            only_show=list(only_show),
         )  # at 0...
 
-    if vw_muscles:
-        print_("Adding VirtualWorm muscles...")
-        add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
-
-    if vw_neurons:
-        print_("Adding VirtualWorm neurons...")
-        add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
+    if sibernetic:
+        print_("Adding Sibernetic model...")
+        add_sibernetic_model(
+            plotter, swap_y_z=True, offset3d=(spacing, -50, -100), show_footprint=False
+        )
 
     plotter.set_viewup([0, 10, 0])
     return plotter
 
+
+only_show = []
+if st_mode:
+    groups, all_cell_ids = get_cell_groups(NEUROML_FILE)
+    group = st.selectbox(
+        "Cells to show (NeuroML and VirtualWorm models):",
+        list(groups.keys()),
+        key="sel_cell_group",
+        label_visibility="collapsed",
+        help="Which cells to show, applied to the NeuroML and VirtualWorm models",
+    )
+    if groups[group] is None:
+        only_show = st.multiselect(
+            "Choose cells:",
+            all_cell_ids,
+            default=["AVAL", "AVAR"],
+            key="sel_cells",
+            label_visibility="collapsed",
+        )
+    else:
+        only_show = groups[group]
 
 selection = (
     adding_sibernetic_model,
     adding_neuroml_model,
     adding_virtualworm_muscles,
     adding_virtualworm_neurons,
+    tuple(only_show),
 )
 
 if st_mode:
@@ -158,6 +249,7 @@ if st_mode:
             adding_virtualworm_muscles,
             adding_virtualworm_neurons,
         )
+        view_key += "_%d" % hash(tuple(only_show))
 
         # The panel backend needs no extra dependencies (the default, trame, does)
         stpyvista(plotter, backend="panel", key=view_key)
