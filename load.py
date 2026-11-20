@@ -1,10 +1,10 @@
 import pyvista as pv
 import sys
 
-from neuromlmodel import add_neuroml_model  # noqa: F401
+from neuromlmodel import add_neuroml_model, load_neuroml_model  # noqa: F401
 from SiberneticReplay import add_sibernetic_model  # noqa: F401
-from virtualworm import add_virtualworm_muscles  # noqa: F401
-from virtualworm import add_virtualworm_neurons  # noqa: F401
+from virtualworm import add_virtualworm_muscles, load_virtualworm_muscles  # noqa: F401
+from virtualworm import add_virtualworm_neurons, load_virtualworm_neurons  # noqa: F401
 from virtualworm import print_picked_name  # noqa: F401
 
 
@@ -18,13 +18,17 @@ if __name__ == "__main__":
     )
     add_neuroml_model(
         plotter,
-        "NeuroML2/c302_D_Full.net.nml",
+        load_neuroml_model("NeuroML2/c302_D_Full.net.nml"),
         somas_only=False,
         factor=0.2,
         rotate_x=-90,
     )  # at 0...
-    add_virtualworm_muscles(plotter, translate=(-1 * spacing, 0, 0))
-    add_virtualworm_neurons(plotter, translate=(-1.8 * spacing, 0, 0))
+    add_virtualworm_muscles(
+        plotter, load_virtualworm_muscles(), translate=(-1 * spacing, 0, 0)
+    )
+    add_virtualworm_neurons(
+        plotter, load_virtualworm_neurons(), translate=(-1.8 * spacing, 0, 0)
+    )
 
     plotter.set_background("white")
     plotter.set_viewup([0, 10, 0])

@@ -1,7 +1,7 @@
-from neuromlmodel import add_neuroml_model  # noqa: F401
+from neuromlmodel import add_neuroml_model, load_neuroml_model  # noqa: F401
 from SiberneticReplay import add_sibernetic_model  # noqa: F401
-from virtualworm import add_virtualworm_muscles  # noqa: F401
-from virtualworm import add_virtualworm_neurons  # noqa: F401
+from virtualworm import add_virtualworm_muscles, load_virtualworm_muscles  # noqa: F401
+from virtualworm import add_virtualworm_neurons, load_virtualworm_neurons  # noqa: F401
 
 import os
 import platform
@@ -92,7 +92,7 @@ div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
 
     st.markdown(
         '<p class="ow-title">OpenWorm 3D Viewer<span> 3D viewer'
-        "for <i>C. elegans</i> models and datasets</span></p>",
+        " for <i>C. elegans</i> models and datasets</span></p>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -105,9 +105,9 @@ div[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
 ## Default selection of models to show (the checkboxes below override these
 ## in Streamlit mode)
 adding_sibernetic_model = False
-adding_neuroml_model = True
+adding_neuroml_model = False
 adding_virtualworm_muscles = False
-adding_virtualworm_neurons = False
+adding_virtualworm_neurons = True
 
 if st_mode:
     cols = st.columns(4)
@@ -128,6 +128,19 @@ if st_mode:
 spacing = 50
 
 NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
+
+
+# The loaded NeuroML document and VirtualWorm meshes are read once and then
+# kept by Streamlit, so changing the cell selection only re-adds cells to a new
+# plotter. They are not modified when adding them to a plotter, so sharing is
+# safe.
+def _cached(func):
+    return st.cache_resource(show_spinner=False)(func) if st_mode else func
+
+
+get_neuroml_doc = _cached(load_neuroml_model)
+get_virtualworm_muscles = _cached(load_virtualworm_muscles)
+get_virtualworm_neurons = _cached(load_virtualworm_neurons)
 
 
 def get_cell_groups(nml_file):
@@ -167,6 +180,7 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
         print_("Adding VirtualWorm neurons...")
         add_virtualworm_neurons(
             plotter,
+            get_virtualworm_neurons(),
             translate=((-0.8 * spacing - (vw_muscles * spacing)), 0, 0),
             only_show=list(only_show),
         )
@@ -174,14 +188,17 @@ def build_scene(sibernetic, neuroml, vw_muscles, vw_neurons, only_show=()):
     if vw_muscles:
         print_("Adding VirtualWorm muscles...")
         add_virtualworm_muscles(
-            plotter, translate=(-1 * spacing, 0, 0), only_show=list(only_show)
+            plotter,
+            get_virtualworm_muscles(),
+            translate=(-1 * spacing, 0, 0),
+            only_show=list(only_show),
         )
 
     if neuroml:
         print_("Adding NeuroML model...")
         add_neuroml_model(
             plotter,
-            "NeuroML2/c302_D_Full.net.nml",
+            get_neuroml_doc(NEUROML_FILE),
             somas_only=False,
             factor=0.2,
             rotate_x=-90,

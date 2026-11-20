@@ -95,9 +95,17 @@ def make_segment(
     return np.vstack(points), faces, np.vstack(normals)
 
 
+def load_neuroml_model(filename):
+    """Read a NeuroML file (including any included files) into a document that
+    can be passed (any number of times) to add_neuroml_model()."""
+    nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
+    print("Loaded NeuroML file: %s" % filename)
+    return nml_doc
+
+
 def add_neuroml_model(
     plotter,
-    filename,
+    nml_doc,
     somas_only=False,
     factor=1,
     rotate_x=0.0,
@@ -105,15 +113,14 @@ def add_neuroml_model(
     rotate_z=0.0,
     only_show=[],
 ):
-    """Add the populations/cells of a NeuroML file to the plotter.
+    """Add the populations/cells of a loaded NeuroML document to the plotter.
+
+    nml_doc: a NeuroML document, e.g. from load_neuroml_model(). It is not
+    modified, so a single loaded document can be reused for many plotters.
 
     only_show: list of population ids (cell names, e.g. "ADAL") to show; all
     other populations are omitted. An empty list shows everything.
     """
-    nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
-
-    print("Loaded NeuroML file: %s" % filename)
-
     (
         cell_id_vs_cell,
         pop_id_vs_cell,
@@ -145,7 +152,10 @@ def add_neuroml_model(
         point_cloud = pv.PolyData(points)
 
         if isinstance(cell, Cell):
-            print("Loading a cell with %i segments" % len(cell.morphology.segments))
+            print(
+                "Adding a cell with %i segments, which will be added %i time(s)"
+                % (len(cell.morphology.segments), len(points))
+            )
 
             # accumulate every cylinder/frustum segment's raw geometry here
             # and build a single PolyData for the whole cell below, rather
@@ -233,11 +243,7 @@ if __name__ == "__main__":
         nml_file = c302_nml
         rotate_x = -90
 
-    add_neuroml_model(
-        plotter,
-        nml_file,
-        somas_only=False,
-    )
+    add_neuroml_model(plotter, load_neuroml_model(nml_file), somas_only=False)
     plotter.set_background("white")
     plotter.add_axes()
 
