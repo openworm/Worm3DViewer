@@ -7,6 +7,14 @@ from pyneuroml import pynml
 from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
+from meshcache import load_meshes, save_meshes
+
+# The mesh cache (see meshcache.py) holds the model shown by the Streamlit app
+CACHE_NAME = "neuroml_c302"
+CACHE_NML_FILE = "NeuroML2/c302_D_Full.net.nml"
+CACHE_MESH_PARAMS = dict(somas_only=False, factor=0.2, rotate_x=-90)
+CACHE_PARAMS = dict(CACHE_MESH_PARAMS, file=CACHE_NML_FILE)
+
 
 def _rotation_matrix(rotate_x=0.0, rotate_y=0.0, rotate_z=0.0):
     """Combined rotation matrix for rotations (in degrees) about the x,
@@ -176,8 +184,7 @@ def _get_cell_mesh(nml_doc, cell, rotation, factor, somas_only, rotate_xyz):
     return cache[key]
 
 
-def add_neuroml_model(
-    plotter,
+def build_neuroml_meshes(
     nml_doc,
     somas_only=False,
     factor=1,
@@ -185,19 +192,18 @@ def add_neuroml_model(
     rotate_y=0.0,
     rotate_z=0.0,
     only_show=[],
-    colors={},
 ):
-    """Add the populations/cells of a loaded NeuroML document to the plotter.
+    """Build the mesh of each population (cell name) of a loaded NeuroML
+    document, in the viewer's (rotated/scaled) frame: all the instances of the
+    cell, glyphed at their positions.
 
-    nml_doc: a NeuroML document, e.g. from load_neuroml_model(). It is not
-    modified, so a single loaded document can be reused for many plotters.
+    Returns (items, info): a list of (population id, pv.PolyData), and a list of
+    dicts with the default "color" of each population (from the model, else a
+    random one) and whether it should be drawn "smooth" (a cell, not a sphere).
+    These are what add_neuroml_meshes() adds, and what the mesh cache stores.
 
-    only_show: list of population ids (cell names, e.g. "ADAL") to show; all
-    other populations are omitted. An empty list shows everything.
-
-    colors: dict of population id (cell name) -> color (e.g. an rgb tuple) to
-    use instead of the color from the model. Cells not in the dict (or an
-    empty dict) use the model's color.
+    only_show: list of population ids (cell names) to build, as for
+    add_neuroml_model()
     """
     (
         cell_id_vs_cell,
@@ -209,6 +215,8 @@ def add_neuroml_model(
 
     rotation = _rotation_matrix(rotate_x, rotate_y, rotate_z)
 
+    items = []
+    info = []
     for pop_id, cell in pop_id_vs_cell.items():
         if only_show and pop_id not in only_show:
             continue
@@ -219,10 +227,8 @@ def add_neuroml_model(
 
         radius = pop_id_vs_radii[pop_id] if pop_id in pop_id_vs_radii else 0.5
 
-        # color: given in colors, else set in the model, else a random rgb color
-        if pop_id in colors:
-            color = colors[pop_id]
-        elif pop_id in pop_id_vs_color:
+        # default color: set in the model, else a random rgb color
+        if pop_id in pop_id_vs_color:
             color = pop_id_vs_color[pop_id]
         else:
             color = np.random.rand(3)
@@ -247,15 +253,102 @@ def add_neuroml_model(
                 (rotate_x, rotate_y, rotate_z),
             )
             glyphs = point_cloud.glyph(geom=cell_mesh, scale=False, orient=False)
-            plotter.add_mesh(glyphs, color=color, smooth_shading=True)
-
         else:
             sphere = make_sphere((0.0, 0.0, 0.0), radius)
             glyphs = point_cloud.glyph(geom=sphere, scale=False, orient=False)
-            plotter.add_mesh(glyphs, color=color)
+
+        items.append((pop_id, glyphs))
+        info.append(
+            {"color": np.asarray(color).tolist(), "smooth": isinstance(cell, Cell)}
+        )
+    return items, info
+
+
+def add_neuroml_meshes(
+    plotter,
+    items,
+    info,
+    only_show=[],
+    colors={},
+    highlight=[],
+    faded_opacity=0.1,
+):
+    """Add (some of) the populations from build_neuroml_meshes() (or the mesh
+    cache) to the plotter. They are not modified.
+
+    only_show, colors, highlight: as for add_neuroml_model()
+    """
+    for (pop_id, mesh), pop_info in zip(items, info):
+        if only_show and pop_id not in only_show:
+            continue
+
+        # color: given in colors, else the default one
+        color = colors[pop_id] if pop_id in colors else pop_info["color"]
+        opacity = faded_opacity if highlight and pop_id not in highlight else 1.0
+
+        if pop_info["smooth"]:
+            plotter.add_mesh(mesh, color=color, opacity=opacity, smooth_shading=True)
+        else:
+            plotter.add_mesh(mesh, color=color, opacity=opacity)
+
+
+def add_neuroml_model(
+    plotter,
+    nml_doc,
+    somas_only=False,
+    factor=1,
+    rotate_x=0.0,
+    rotate_y=0.0,
+    rotate_z=0.0,
+    only_show=[],
+    colors={},
+    highlight=[],
+    faded_opacity=0.1,
+):
+    """Add the populations/cells of a loaded NeuroML document to the plotter.
+
+    nml_doc: a NeuroML document, e.g. from load_neuroml_model(). It is not
+    modified, so a single loaded document can be reused for many plotters.
+
+    only_show: list of population ids (cell names, e.g. "ADAL") to show; all
+    other populations are omitted. An empty list shows everything.
+
+    colors: dict of population id (cell name) -> color (e.g. an rgb tuple) to
+    use instead of the color from the model. Cells not in the dict (or an
+    empty dict) use the model's color.
+
+    highlight: list of population ids (cell names) to highlight. If not empty,
+    these are shown as normal and all the other shown cells are made
+    transparent (opacity faded_opacity).
+    """
+    items, info = build_neuroml_meshes(
+        nml_doc, somas_only, factor, rotate_x, rotate_y, rotate_z, only_show
+    )
+    add_neuroml_meshes(
+        plotter, items, info, only_show, colors, highlight, faded_opacity
+    )
+
+
+def build_cache():
+    """Make the mesh cache of the NeuroML model that the Streamlit app shows
+    (CACHE_NML_FILE, with CACHE_PARAMS)"""
+    items, info = build_neuroml_meshes(
+        load_neuroml_model(CACHE_NML_FILE), **CACHE_MESH_PARAMS
+    )
+    save_meshes(CACHE_NAME, items, params=CACHE_PARAMS, info=info)
+
+
+def load_neuroml_cache():
+    """Read the mesh cache made by -cache. Returns (items, info) for
+    add_neuroml_meshes(). Raises meshcache.CacheError if it hasn't been made."""
+    return load_meshes(CACHE_NAME, params=CACHE_PARAMS)
 
 
 if __name__ == "__main__":
+    if "-cache" in sys.argv:
+        build_cache()
+        sys.exit(0)
+
     plotter = pv.Plotter()
 
     c302_nml = "NeuroML2/c302_D_Full.net.nml"

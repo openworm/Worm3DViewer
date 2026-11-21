@@ -3,11 +3,17 @@ import pyvista as pv
 
 from cect.Cells import is_known_cell, cell_notes
 
+from meshcache import load_meshes, save_meshes
+
 import re
 import sys
 
 BODY_WALL_MUSCLE_OBJ_FILE = "bwm.obj"
 NEURONS_OBJ_FILE = "neurons.obj"
+
+# Names of the mesh caches (see meshcache.py)
+MUSCLES_CACHE = "virtualworm_muscles"
+NEURONS_CACHE = "virtualworm_neurons"
 
 cell_mappings = {
     "Excretory_Cell": "exc_cell",
@@ -112,6 +118,8 @@ def add_named_objects(
     translate=(0, 0, 0),
     only_show=[],
     colors={},
+    highlight=[],
+    faded_opacity=0.1,
     **mesh_kwargs,
 ):
     """Add objects (from read_obj_objects()) preserving their names, adding
@@ -148,6 +156,10 @@ def add_named_objects(
     that object (a cell's numbered parts, e.g. MVL22_81, use the color of MVL22).
     Cells not in the dict (or an empty dict) get the default color.
 
+    highlight: list of cell names to highlight. If not empty, these are shown
+    as normal and all the other shown objects are made transparent (opacity
+    faded_opacity). An empty list highlights nothing (all are opaque).
+
     objects are not modified.
 
     Returns a dict of {name: Actor}.
@@ -162,20 +174,35 @@ def add_named_objects(
         color = colors.get(name, colors.get(_base_name(name)))
         if color is None:
             color = get_color_for_object(name)
-        actor = plotter.add_mesh(mesh, color=color, **mesh_kwargs)
+        faded = (
+            highlight and _base_name(name) not in highlight and name not in highlight
+        )
+        actor = plotter.add_mesh(
+            mesh, color=color, opacity=faded_opacity if faded else 1.0, **mesh_kwargs
+        )
         actor.name = name
         actors[name] = actor
     return actors
 
 
-def load_virtualworm_muscles():
-    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles()"""
+def load_virtualworm_muscles(use_cache=False):
+    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles().
+    use_cache: read the (much faster) cache made by -cache instead, which
+    raises meshcache.CacheError if it hasn't been made."""
+    if use_cache:
+        return load_meshes(MUSCLES_CACHE)[0]
     print("Loading virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
     return read_obj_objects(BODY_WALL_MUSCLE_OBJ_FILE)
 
 
 def add_virtualworm_muscles(
-    plotter, objects, scale=20, translate=(-40, 0, 0), only_show=[], colors={}
+    plotter,
+    objects,
+    scale=20,
+    translate=(-40, 0, 0),
+    only_show=[],
+    colors={},
+    highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
     print("Adding virtual worm muscles...")
@@ -186,18 +213,34 @@ def add_virtualworm_muscles(
         translate=translate,
         only_show=only_show,
         colors=colors,
+        highlight=highlight,
         smooth_shading=True,
     )
 
 
-def load_virtualworm_neurons():
-    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons()"""
+def load_virtualworm_neurons(use_cache=False):
+    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons().
+    use_cache: as for load_virtualworm_muscles()"""
+    if use_cache:
+        return load_meshes(NEURONS_CACHE)[0]
     print("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
     return read_obj_objects(NEURONS_OBJ_FILE)
 
 
+def build_cache():
+    """Make the mesh caches of the muscles and the neurons"""
+    save_meshes(MUSCLES_CACHE, load_virtualworm_muscles())
+    save_meshes(NEURONS_CACHE, load_virtualworm_neurons())
+
+
 def add_virtualworm_neurons(
-    plotter, objects, scale=20, translate=(-80, 0, 0), only_show=[], colors={}
+    plotter,
+    objects,
+    scale=20,
+    translate=(-80, 0, 0),
+    only_show=[],
+    colors={},
+    highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
     print("Adding virtual worm neurons...")
@@ -208,6 +251,7 @@ def add_virtualworm_neurons(
         translate=translate,
         only_show=only_show,
         colors=colors,
+        highlight=highlight,
         smooth_shading=True,
     )
 
@@ -221,6 +265,10 @@ def print_picked_name(actor):
 
 
 if __name__ == "__main__":
+    if "-cache" in sys.argv:
+        build_cache()
+        sys.exit(0)
+
     pl = pv.Plotter()
 
     add_virtualworm_muscles(pl, load_virtualworm_muscles())

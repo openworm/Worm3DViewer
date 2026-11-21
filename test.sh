@@ -18,3 +18,10 @@ python virtualworm.py -nogui
 
 # Test the script for loading multiple 3D models, without showing the GUI
 python load.py -nogui 
+
+# Make the mesh caches (in ./cache) that the Streamlit app reads. The Witvliet
+# et al. 2021 STL files are downloaded first (nothing is done if already there)
+./download_witvliet2021.sh
+python neuromlmodel.py -cache
+python virtualworm.py -cache
+python witvliet2021.py -cache
