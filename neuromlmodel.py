@@ -7,6 +7,7 @@ from pyneuroml import pynml
 from pyneuroml.utils import extract_position_info
 from neuroml import Cell
 
+
 from meshcache import load_meshes, save_meshes
 
 # The mesh cache (see meshcache.py) holds the model shown by the Streamlit app
@@ -14,6 +15,12 @@ CACHE_NAME = "neuroml_c302"
 CACHE_NML_FILE = "NeuroML2/c302_D_Full.net.nml"
 CACHE_MESH_PARAMS = dict(somas_only=False, factor=0.2, rotate_x=-90)
 CACHE_PARAMS = dict(CACHE_MESH_PARAMS, file=CACHE_NML_FILE)
+
+
+def print_(msg, print_it=True):  # print_it=False when not verbose
+    if print_it:
+        pre = "NeuroMLViewer >>> "
+        print("%s %s" % (pre, msg.replace("\n", "\n" + pre)))
 
 
 def _rotation_matrix(rotate_x=0.0, rotate_y=0.0, rotate_z=0.0):
@@ -107,7 +114,7 @@ def load_neuroml_model(filename):
     """Read a NeuroML file (including any included files) into a document that
     can be passed (any number of times) to add_neuroml_model()."""
     nml_doc = pynml.read_neuroml2_file(filename, include_includes=True)
-    print("Loaded NeuroML file: %s" % filename)
+    print_("Loaded NeuroML file: %s" % filename)
     return nml_doc
 
 
@@ -223,7 +230,7 @@ def build_neuroml_meshes(
 
         pos_pop = positions[pop_id]  # type: typing.Dict[typing.Any, typing.List[float]]
 
-        print("Pop: %s has %i of component %s" % (pop_id, len(pos_pop), cell.id))
+        print_("Pop: %s has %i of component %s" % (pop_id, len(pos_pop), cell.id))
 
         radius = pop_id_vs_radii[pop_id] if pop_id in pop_id_vs_radii else 0.5
 
@@ -239,7 +246,7 @@ def build_neuroml_meshes(
         point_cloud = pv.PolyData(points)
 
         if isinstance(cell, Cell):
-            print(
+            print_(
                 "Adding a cell with %i segments, which will be added %i time(s)"
                 % (len(cell.morphology.segments), len(points))
             )
@@ -271,7 +278,7 @@ def add_neuroml_meshes(
     only_show=[],
     colors={},
     highlight=[],
-    faded_opacity=0.1,
+    faded_opacity=0.05,
 ):
     """Add (some of) the populations from build_neuroml_meshes() (or the mesh
     cache) to the plotter. They are not modified.

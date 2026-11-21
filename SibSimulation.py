@@ -119,7 +119,7 @@ class SibSimulation:
             try:
                 self._load_traces()
             except Exception as e:
-                print(f"Error loading traces: {e}")
+                print_(f"Error loading traces: {e}")
 
     def __repr__(self):
         return f"SibSimulation(sim_dir={self.sim_dir}, duration={self.get_duration_ms()} ms)"
@@ -159,7 +159,7 @@ class SibSimulation:
 
     def _load_report(self, report_file, fail_if_missing=True):
         if not os.path.isfile(report_file):
-            print(f"Report file not found: {report_file}")
+            print_(f"Report file not found: {report_file}")
             if fail_if_missing:
                 raise FileNotFoundError(f"Report file not found: {report_file}")
             return
@@ -235,14 +235,14 @@ class SibSimulation:
                 results = reload_saved_data(
                     lems_file, verbose=True, downsample=self.downsample
                 )
-                print(f"Result keys: {results.keys()}")
+                print_(f"Result keys: {results.keys()}")
 
                 for k, v in results.items():
                     cell_ref = k.split("/")[0]
                     if cell_ref.startswith("PopM"):
                         index_cell = str(int(k.split("/")[1]) + 1)
                         cell_ref = cell_ref[3:]
-                        print(cell_ref, index_cell)
+                        print_(cell_ref, index_cell)
 
                         if "MV1" in cell_ref:
                             cell_ref = cell_ref.replace("MV1", "MVL") + index_cell
@@ -626,9 +626,6 @@ def plot_neuron_activity(neurons, label, title, show_labels=False):
                 color=color,
                 marker=None,
             )
-
-    print(maxes)
-    print(mids)
 
     if show_labels:
         # display the labels in the plots
