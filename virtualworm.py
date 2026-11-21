@@ -112,6 +112,8 @@ def add_named_objects(
     translate=(0, 0, 0),
     only_show=[],
     colors={},
+    highlight=[],
+    faded_opacity=0.1,
     **mesh_kwargs,
 ):
     """Add objects (from read_obj_objects()) preserving their names, adding
@@ -148,6 +150,10 @@ def add_named_objects(
     that object (a cell's numbered parts, e.g. MVL22_81, use the color of MVL22).
     Cells not in the dict (or an empty dict) get the default color.
 
+    highlight: list of cell names to highlight. If not empty, these are shown
+    as normal and all the other shown objects are made transparent (opacity
+    faded_opacity). An empty list highlights nothing (all are opaque).
+
     objects are not modified.
 
     Returns a dict of {name: Actor}.
@@ -162,7 +168,12 @@ def add_named_objects(
         color = colors.get(name, colors.get(_base_name(name)))
         if color is None:
             color = get_color_for_object(name)
-        actor = plotter.add_mesh(mesh, color=color, **mesh_kwargs)
+        faded = (
+            highlight and _base_name(name) not in highlight and name not in highlight
+        )
+        actor = plotter.add_mesh(
+            mesh, color=color, opacity=faded_opacity if faded else 1.0, **mesh_kwargs
+        )
         actor.name = name
         actors[name] = actor
     return actors
@@ -175,7 +186,13 @@ def load_virtualworm_muscles():
 
 
 def add_virtualworm_muscles(
-    plotter, objects, scale=20, translate=(-40, 0, 0), only_show=[], colors={}
+    plotter,
+    objects,
+    scale=20,
+    translate=(-40, 0, 0),
+    only_show=[],
+    colors={},
+    highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
     print("Adding virtual worm muscles...")
@@ -186,6 +203,7 @@ def add_virtualworm_muscles(
         translate=translate,
         only_show=only_show,
         colors=colors,
+        highlight=highlight,
         smooth_shading=True,
     )
 
@@ -197,7 +215,13 @@ def load_virtualworm_neurons():
 
 
 def add_virtualworm_neurons(
-    plotter, objects, scale=20, translate=(-80, 0, 0), only_show=[], colors={}
+    plotter,
+    objects,
+    scale=20,
+    translate=(-80, 0, 0),
+    only_show=[],
+    colors={},
+    highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
     print("Adding virtual worm neurons...")
@@ -208,6 +232,7 @@ def add_virtualworm_neurons(
         translate=translate,
         only_show=only_show,
         colors=colors,
+        highlight=highlight,
         smooth_shading=True,
     )
 

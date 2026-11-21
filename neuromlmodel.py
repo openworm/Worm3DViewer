@@ -186,6 +186,8 @@ def add_neuroml_model(
     rotate_z=0.0,
     only_show=[],
     colors={},
+    highlight=[],
+    faded_opacity=0.1,
 ):
     """Add the populations/cells of a loaded NeuroML document to the plotter.
 
@@ -198,6 +200,10 @@ def add_neuroml_model(
     colors: dict of population id (cell name) -> color (e.g. an rgb tuple) to
     use instead of the color from the model. Cells not in the dict (or an
     empty dict) use the model's color.
+
+    highlight: list of population ids (cell names) to highlight. If not empty,
+    these are shown as normal and all the other shown cells are made
+    transparent (opacity faded_opacity).
     """
     (
         cell_id_vs_cell,
@@ -227,6 +233,8 @@ def add_neuroml_model(
         else:
             color = np.random.rand(3)
 
+        opacity = faded_opacity if highlight and pop_id not in highlight else 1.0
+
         # instance positions of this population, rotated/scaled to viewer axes
         raw_positions = np.array(list(pos_pop.values()), dtype=float)
         points = _transform(raw_positions, rotation, factor)
@@ -247,12 +255,12 @@ def add_neuroml_model(
                 (rotate_x, rotate_y, rotate_z),
             )
             glyphs = point_cloud.glyph(geom=cell_mesh, scale=False, orient=False)
-            plotter.add_mesh(glyphs, color=color, smooth_shading=True)
+            plotter.add_mesh(glyphs, color=color, opacity=opacity, smooth_shading=True)
 
         else:
             sphere = make_sphere((0.0, 0.0, 0.0), radius)
             glyphs = point_cloud.glyph(geom=sphere, scale=False, orient=False)
-            plotter.add_mesh(glyphs, color=color)
+            plotter.add_mesh(glyphs, color=color, opacity=opacity)
 
 
 if __name__ == "__main__":
