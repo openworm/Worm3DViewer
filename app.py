@@ -307,7 +307,7 @@ def random_colors(names):
     }
 
 
-RANDOM_OPTION = "Consistent, random colors"
+RANDOM_OPTION = "Random color per cell"
 COLOUR_OPTIONS = ["Default", RANDOM_OPTION]  # the first is the default in the UI
 
 # Background of the 3D view; green matches the page (OpenWorm green)
@@ -318,6 +318,76 @@ highlight = []
 colour_option = COLOUR_OPTIONS[0]
 background_option = "Green"
 spacing = DEFAULT_SPACING
+
+
+# The Refresh button is disabled until an option in the form is changed. Changing
+# a widget in a form doesn't rerun the script, so this can't be done in Python and
+# is done in the browser: the state of the form (checkboxes, selections, slider...)
+# is recorded when the page is first shown and after each Refresh, and the button
+# is only enabled while the form is different from that.
+REFRESH_GUARD_JS = """
+<script>
+(() => {
+  if (window.__owRefreshGuard) return;  // the page's script persists over reruns
+  window.__owRefreshGuard = true;
+
+  const formState = (form) => {
+    const parts = [];
+    form.querySelectorAll('input').forEach((e) => {
+      if (e.closest('[data-testid="stMultiSelect"]')) return;  // see its chips below
+      parts.push(e.type === 'checkbox' ? e.checked : e.value);
+    });
+    form.querySelectorAll('[data-testid="stMultiSelect"]').forEach((e) =>
+      parts.push(e.innerText));
+    form.querySelectorAll('[aria-checked],[aria-pressed],[aria-valuenow]').forEach((e) =>
+      parts.push(e.getAttribute('aria-checked') + e.getAttribute('aria-pressed') +
+                 e.getAttribute('aria-valuenow')));
+    return JSON.stringify(parts);
+  };
+  const refreshButton = (form) =>
+    [...form.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Refresh');
+
+  let applied = null;  // the state of the form that is displayed
+  let pending = null;
+  let timer = null;
+  const update = () => {
+    const form = document.querySelector('[data-testid="stForm"]');
+    const button = form && refreshButton(form);
+    if (!button) return;
+    const state = formState(form);
+    if (applied === null) {
+      // the first state: once the form has stopped changing while loading
+      if (state !== pending) {
+        pending = state;
+        button.disabled = true;
+        setTimeout(update, 500);
+        return;
+      }
+      applied = state;
+    }
+    button.disabled = state === applied;
+    if (!button.__owGuard) {
+      button.__owGuard = true;
+      // after Refresh, what is in the form is what is displayed
+      button.addEventListener('click', () => setTimeout(() => {
+        applied = formState(form);
+        button.disabled = true;
+      }, 100));
+    }
+  };
+  // widgets are added/changed after the page loads, so look at every change (but
+  // not too often)
+  new MutationObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(update, 150);
+  }).observe(document.body, {subtree: true, childList: true, attributes: true,
+                             characterData: true});
+  document.addEventListener('input', () => setTimeout(update, 150), true);
+  document.addEventListener('click', () => setTimeout(update, 300), true);
+  update();
+})();
+</script>
+"""
 
 
 def panel_title(text):
@@ -449,6 +519,9 @@ if st_mode:
                 "are only applied when this is pressed, so several can be changed first.",
             )
 
+if st_mode:
+    st.html(REFRESH_GUARD_JS, unsafe_allow_javascript=True)
+
 # Empty dict -> each model uses its own colors
 colors = random_colors(all_cell_ids) if colour_option == RANDOM_OPTION else {}
 
@@ -500,7 +573,10 @@ if st_mode:
         )
         view_key += "_sp%d" % spacing
 
-        with st.spinner("Displaying worm models...", show_time=True):
+        with st.spinner(
+            "Displaying worm models (slow first time a model is loaded)...",
+            show_time=True,
+        ):
             # The panel backend needs no extra dependencies (the default, trame, does)
             stpyvista(
                 plotter,
