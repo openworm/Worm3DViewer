@@ -30,6 +30,12 @@ COPY Sibernetic/* ./Sibernetic/
 COPY NeuroML2/* ./NeuroML2/
 COPY NeuroML2/cells/* ./NeuroML2/cells/
 
+# Build the mesh caches (in ./cache) that the app reads: it does not build meshes
+# itself (see meshcache.py)
+RUN python neuromlmodel.py -cache \
+    && python virtualworm.py -cache \
+    && python witvliet2021.py -cache
+
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --fail http://localhost:8080/_stcore/health

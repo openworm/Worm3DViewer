@@ -11,6 +11,7 @@ add_stl_neurons() adds (some of) them to a plotter, any number of times.
 
 Usage:
     python witvliet2021.py [models_dir [decimate_fraction]] [-nogui]
+    python witvliet2021.py -cache     make the mesh cache used by the Streamlit app
 """
 
 import glob
@@ -23,9 +24,17 @@ import pyvista as pv
 
 import cect.Cells as cells
 
+from meshcache import load_meshes, save_meshes
+from neuromlmodel import _rotation_matrix
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DIR = os.path.join(HERE, "Witvliet2021")
 SUFFIX = "-SEM_adult.stl"
+
+# The mesh cache (see meshcache.py) is made with this fraction of the triangles
+# removed: the full meshes have ~5 million points, too slow to show in a browser
+CACHE_DECIMATE = 0.8
+CACHE_NAME = "witvliet2021"
 
 
 def find_stl_files(models_dir=DEFAULT_DIR):
@@ -36,14 +45,21 @@ def find_stl_files(models_dir=DEFAULT_DIR):
     return files
 
 
-def load_stl_neurons(models_dir=DEFAULT_DIR, decimate=0.0):
+def load_stl_neurons(models_dir=DEFAULT_DIR, decimate=0.0, use_cache=False):
     """Read the cell STL files, for add_stl_neurons(). Returns a dict of
     cell name -> pv.PolyData (in the files' own coordinates, float32).
 
     decimate: fraction of the triangles to remove from each mesh (0 = keep all,
     0.8 = keep 20%). The full resolution meshes have about 5 million points in
     all, much more than is needed (or fast enough) for viewing the whole worm
-    in a browser."""
+    in a browser.
+
+    use_cache: read the (much faster) cache made by -cache instead, which has
+    the CACHE_DECIMATE decimation, ignoring models_dir and decimate. Raises
+    meshcache.CacheError if it hasn't been made."""
+    if use_cache:
+        return dict(load_meshes(CACHE_NAME)[0])
+
     files = find_stl_files(models_dir)
     if not files:
         print(
@@ -59,6 +75,12 @@ def load_stl_neurons(models_dir=DEFAULT_DIR, decimate=0.0):
         mesh.points = mesh.points.astype(np.float32)
         meshes[name] = mesh
     return meshes
+
+
+def build_cache(models_dir=DEFAULT_DIR, decimate=CACHE_DECIMATE):
+    """Make the mesh cache: the decimated meshes of all the cells"""
+    meshes = load_stl_neurons(models_dir, decimate=decimate)
+    save_meshes(CACHE_NAME, list(meshes.items()))
 
 
 def default_color(name):
@@ -80,6 +102,9 @@ def add_stl_neurons(
     meshes,
     scale=1,
     translate=(0, 0, 0),
+    rotate_x=0.0,
+    rotate_y=0.0,
+    rotate_z=0.0,
     only_show=[],
     colors={},
     highlight=[],
@@ -87,6 +112,10 @@ def add_stl_neurons(
     center=True,
 ):
     """Add (some of) the cells from load_stl_neurons() to the plotter.
+
+    rotate_x, rotate_y, rotate_z: rotation in degrees about the x, y, then z
+    axis (as for add_neuroml_model()), around the middle of the loaded cells
+    when center is True, otherwise around the origin.
 
     only_show: list of cell names (e.g. "AVAL") to show; all others are
     omitted. An empty list shows everything.
@@ -103,13 +132,16 @@ def add_stl_neurons(
     meshes are not modified. Returns a dict of {name: Actor}.
     """
     translate = np.asarray(translate, dtype=np.float32)
+    rotation = _rotation_matrix(rotate_x, rotate_y, rotate_z)
     origin = stl_center(meshes) if center and meshes else np.zeros(3)
     actors = {}
     for name, stl_mesh in meshes.items():
         if only_show and name not in only_show:
             continue
         # a new mesh, so the loaded ones can be reused for other plotters
-        points = ((stl_mesh.points - origin) * scale + translate).astype(np.float32)
+        points = ((stl_mesh.points - origin) @ rotation.T * scale + translate).astype(
+            np.float32
+        )
         mesh = pv.PolyData(points, stl_mesh.faces)
         color = colors.get(name)
         if color is None:
@@ -131,6 +163,10 @@ if __name__ == "__main__":
     if "-nogui" in sys.argv:
         show_gui = False
         sys.argv.remove("-nogui")
+
+    if "-cache" in sys.argv:
+        build_cache()
+        sys.exit(0)
 
     models_dir = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_DIR
 

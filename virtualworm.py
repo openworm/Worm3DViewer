@@ -3,11 +3,17 @@ import pyvista as pv
 
 from cect.Cells import is_known_cell, cell_notes
 
+from meshcache import load_meshes, save_meshes
+
 import re
 import sys
 
 BODY_WALL_MUSCLE_OBJ_FILE = "bwm.obj"
 NEURONS_OBJ_FILE = "neurons.obj"
+
+# Names of the mesh caches (see meshcache.py)
+MUSCLES_CACHE = "virtualworm_muscles"
+NEURONS_CACHE = "virtualworm_neurons"
 
 cell_mappings = {
     "Excretory_Cell": "exc_cell",
@@ -179,8 +185,12 @@ def add_named_objects(
     return actors
 
 
-def load_virtualworm_muscles():
-    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles()"""
+def load_virtualworm_muscles(use_cache=False):
+    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles().
+    use_cache: read the (much faster) cache made by -cache instead, which
+    raises meshcache.CacheError if it hasn't been made."""
+    if use_cache:
+        return load_meshes(MUSCLES_CACHE)[0]
     print("Loading virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
     return read_obj_objects(BODY_WALL_MUSCLE_OBJ_FILE)
 
@@ -208,10 +218,19 @@ def add_virtualworm_muscles(
     )
 
 
-def load_virtualworm_neurons():
-    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons()"""
+def load_virtualworm_neurons(use_cache=False):
+    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons().
+    use_cache: as for load_virtualworm_muscles()"""
+    if use_cache:
+        return load_meshes(NEURONS_CACHE)[0]
     print("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
     return read_obj_objects(NEURONS_OBJ_FILE)
+
+
+def build_cache():
+    """Make the mesh caches of the muscles and the neurons"""
+    save_meshes(MUSCLES_CACHE, load_virtualworm_muscles())
+    save_meshes(NEURONS_CACHE, load_virtualworm_neurons())
 
 
 def add_virtualworm_neurons(
@@ -246,6 +265,10 @@ def print_picked_name(actor):
 
 
 if __name__ == "__main__":
+    if "-cache" in sys.argv:
+        build_cache()
+        sys.exit(0)
+
     pl = pv.Plotter()
 
     add_virtualworm_muscles(pl, load_virtualworm_muscles())
