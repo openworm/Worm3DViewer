@@ -79,6 +79,16 @@ div[data-testid="stHorizontalBlock"] { gap: 0.5rem; }
                  opacity: 0.9; }
 .stApp p, .stApp label, .stApp [data-testid="stWidgetLabel"] p {
   font-size: 0.78rem; margin: 0; color: var(--ow-text); }
+/* The specific cells pickers are only shown when "Specific cells..." is chosen in
+   the selector above them. The controls are in a form (no rerun on a change), so
+   this is done in CSS: the selector's input has the chosen option as its value. */
+.st-key-sel_cells, .st-key-sel_hl_cells { display: none; }
+div[data-testid="stLayoutWrapper"]:has(.st-key-sel_cell_group input[value="Specific cells..."])
+  + .st-key-sel_cells,
+div[data-testid="stLayoutWrapper"]:has(.st-key-sel_highlight_group input[value="Specific cells..."])
+  + .st-key-sel_hl_cells { display: block; }
+/* white text on the primary (dark green) buttons, e.g. Refresh */
+.stApp button[data-testid^="stBaseButton-primary"] p { color: #fff; }
 div[data-testid="stCheckbox"] { min-height: 0; }
 div[data-testid="stCheckbox"] label { gap: 0.3rem; }
 div[data-testid="stSelectbox"] > div, div[data-testid="stMultiSelect"] > div {
@@ -320,106 +330,124 @@ if st_mode:
     # highlighted would fade nothing)
     HIGHLIGHT_OPTIONS = ["None"] + [g for g in groups if g != "All cells"]
 
-    # Control panels, in the order they are intended to be used:
-    # what to show (Canvas), which cells (Subsets), colours (Overlay), Settings
-    p_canvas, p_subsets, p_overlay, p_settings = st.columns([3, 3, 2, 2])
+    # The controls are in a form, so the 3D view is only redisplayed when the
+    # Refresh button (in Display Options) is pressed, not on every click
+    with st.form("controls", border=False):
+        # Control panels, in the order they are intended to be used:
+        # what to show (Canvas), which cells (Subsets), colours (Overlay), Settings
+        p_canvas, p_subsets, p_overlay, p_settings = st.columns([3, 3, 2, 2])
 
-    with p_canvas.container(border=True):
-        panel_title("3D Canvas")
-        c1, c2 = st.columns(2)
-        adding_virtualworm_neurons = c1.checkbox(
-            "VirtualWorm neurons", value=adding_virtualworm_neurons, key="cb_vw_neurons"
-        )
-        adding_virtualworm_muscles = c2.checkbox(
-            "VirtualWorm muscles", value=adding_virtualworm_muscles, key="cb_vw_muscles"
-        )
-        adding_neuroml_model = c1.checkbox(
-            "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
-        )
-        adding_sibernetic_model = c2.checkbox(
-            "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
-        )
-        adding_stl_neurons = c1.checkbox(
-            "Witvliet et al 2021 adult cells", value=adding_stl_neurons, key="cb_stl"
-        )
+        with p_canvas.container(border=True):
+            panel_title("3D Canvas")
+            c1, c2 = st.columns(2)
+            adding_virtualworm_neurons = c1.checkbox(
+                "VirtualWorm neurons",
+                value=adding_virtualworm_neurons,
+                key="cb_vw_neurons",
+            )
+            adding_virtualworm_muscles = c2.checkbox(
+                "VirtualWorm muscles",
+                value=adding_virtualworm_muscles,
+                key="cb_vw_muscles",
+            )
+            adding_neuroml_model = c1.checkbox(
+                "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
+            )
+            adding_sibernetic_model = c2.checkbox(
+                "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
+            )
+            adding_stl_neurons = c1.checkbox(
+                "Witvliet et al 2021 adult cells",
+                value=adding_stl_neurons,
+                key="cb_stl",
+            )
 
-    with p_subsets.container(border=True):
-        panel_title("Select Subsets")
-        show_label, show_col = st.columns([1, 2], vertical_alignment="center")
-        show_label.markdown("Show")
-        group = show_col.selectbox(
-            "Cells to show",
-            list(groups.keys()),
-            key="sel_cell_group",
-            label_visibility="collapsed",
-            help="Which cells to show",
-        )
-        if groups[group] is None:
-            only_show = st.multiselect(
-                "Choose cells to show:",
+        with p_subsets.container(border=True):
+            panel_title("Select Subsets")
+            show_label, show_col = st.columns([1, 2], vertical_alignment="center")
+            show_label.markdown("Show")
+            group = show_col.selectbox(
+                "Cells to show",
+                list(groups.keys()),
+                key="sel_cell_group",
+                label_visibility="collapsed",
+                help="Which cells to show",
+            )
+            # Only shown (by the CSS above) when "Specific cells..." is chosen: in a
+            # form the page doesn't update on a change, so Python can't do this
+            chosen_cells = st.multiselect(
+                "Specific cells to show",
                 all_cell_ids,
                 default=["AVAL", "AVAR"],
                 key="sel_cells",
                 label_visibility="collapsed",
             )
-        else:
-            only_show = groups[group]
+            only_show = chosen_cells if groups[group] is None else groups[group]
 
-        hl_label, hl_col = st.columns([1, 2], vertical_alignment="center")
-        hl_label.markdown("Highlight")
-        hl_group = hl_col.selectbox(
-            "Cells to highlight",
-            HIGHLIGHT_OPTIONS,
-            key="sel_highlight_group",
-            label_visibility="collapsed",
-            help="Cells to show as normal, with all the other shown cells "
-            "made transparent (not yet implemented for Sibernetic)",
-        )
-        if hl_group == "Specific cells...":
-            highlight = st.multiselect(
-                "Choose cells to highlight:",
+            hl_label, hl_col = st.columns([1, 2], vertical_alignment="center")
+            hl_label.markdown("Highlight")
+            hl_group = hl_col.selectbox(
+                "Cells to highlight",
+                HIGHLIGHT_OPTIONS,
+                key="sel_highlight_group",
+                label_visibility="collapsed",
+                help="Cells to show as normal, with all the other shown cells "
+                "made transparent (not yet implemented for Sibernetic)",
+            )
+            chosen_hl_cells = st.multiselect(
+                "Specific cells to highlight",
                 all_cell_ids,
                 key="sel_hl_cells",
+                placeholder="Choose cells to highlight",
                 label_visibility="collapsed",
             )
-        elif hl_group != "None":
-            highlight = groups[hl_group]
+            if hl_group == "Specific cells...":
+                highlight = chosen_hl_cells
+            elif hl_group != "None":
+                highlight = groups[hl_group]
 
-    with p_overlay.container(border=True):
-        panel_title("Color Overlay")
-        colour_option = st.selectbox(
-            "Colours to use",
-            COLOUR_OPTIONS,
-            key="sel_colours",
-            label_visibility="collapsed",
-            help="Colours to use: Default = those in each loaded model; "
-            f"{RANDOM_OPTION} = a random colour for each named cell",
-        )
-
-    with p_settings.container(border=True):
-        panel_title("Display Options")
-        background_option = (
-            st.segmented_control(
-                "Background",
-                list(BACKGROUNDS),
-                default="Green",
-                key="sel_background",
+        with p_overlay.container(border=True):
+            panel_title("Color Overlay")
+            colour_option = st.selectbox(
+                "Colours to use",
+                COLOUR_OPTIONS,
+                key="sel_colours",
                 label_visibility="collapsed",
-                help="Background colour of the 3D view",
+                help="Colours to use: Default = those in each loaded model; "
+                f"{RANDOM_OPTION} = a random colour for each named cell",
             )
-            or "Green"  # nothing selected (clicking the active option deselects it)
-        )
-        label_col, slider_col = st.columns([1, 2], vertical_alignment="center")
-        label_col.markdown("Worm spacing")
-        spacing = slider_col.slider(
-            "Worm spacing",
-            min_value=0,
-            max_value=DEFAULT_SPACING,
-            value=DEFAULT_SPACING,
-            key="sel_spacing",
-            label_visibility="collapsed",
-            help="Distance between the worms: lower values move them closer together",
-        )
+
+        with p_settings.container(border=True):
+            panel_title("Display Options")
+            background_option = (
+                st.segmented_control(
+                    "Background",
+                    list(BACKGROUNDS),
+                    default="Green",
+                    key="sel_background",
+                    label_visibility="collapsed",
+                    help="Background colour of the 3D view",
+                )
+                or "Green"  # nothing selected (clicking the active option deselects it)
+            )
+            label_col, slider_col = st.columns([1, 2], vertical_alignment="center")
+            label_col.markdown("Worm spacing")
+            spacing = slider_col.slider(
+                "Worm spacing",
+                min_value=0,
+                max_value=DEFAULT_SPACING,
+                value=DEFAULT_SPACING,
+                key="sel_spacing",
+                label_visibility="collapsed",
+                help="Distance between the worms: lower values move them closer together",
+            )
+            st.form_submit_button(
+                "Refresh",
+                type="primary",
+                width="stretch",
+                help="Show the worms with the options chosen in all the panels. They "
+                "are only applied when this is pressed, so several can be changed first.",
+            )
 
 # Empty dict -> each model uses its own colors
 colors = random_colors(all_cell_ids) if colour_option == RANDOM_OPTION else {}
@@ -474,7 +502,13 @@ if st_mode:
 
         with st.spinner("Displaying worm models...", show_time=True):
             # The panel backend needs no extra dependencies (the default, trame, does)
-            stpyvista(plotter, backend="panel", key=view_key)
+            stpyvista(
+                plotter,
+                backend="panel",
+                key=view_key,
+                # the xyz axes indicator (plotter.add_axes() is not exported)
+                backend_kwargs={"orientation_widget": True},
+            )
             # The scene is exported to the browser by now. Close the plotter, as a
             # new one is built on every rerun and would otherwise be left holding
             # its render window and meshes.

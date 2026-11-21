@@ -1,3 +1,7 @@
 __pycache__
 /.DS_Store
 /Sibernetic/muscle_particles_worm_alone_half_resolution.json
+/cache/neuroml_c302.npz
+/cache/virtualworm_muscles.npz
+/cache/virtualworm_neurons.npz
+/cache/witvliet2021.npz
