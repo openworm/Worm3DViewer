@@ -1,0 +1,29 @@
+name: Docker Image Build and Run
+
+on:
+  push:
+    branches: [ main, dev*, experimental, test* ]
+  pull_request:
+    branches: [ main, dev*, experimental, test* ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v7
+    - name: Build the Docker image
+      run: |
+        ls -alth
+        ./build.sh
+
+    - name: Info on Docker images
+      run: |
+        docker -v
+        docker images
+        docker run -t --rm --entrypoint /bin/bash worm3dviewer  -c "pip3 list && python -V"
+
+
+

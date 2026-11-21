@@ -1,7 +1,11 @@
-# Worm3DViewer Requirements
+altair
+pandas
+streamlit
+vtk
 pyvista
+trimesh
 stpyvista
 
-libneuroml
-pyneuroml
+pyneuroml>=1.3.25
+cect
 ruff 
