@@ -33,6 +33,12 @@ unrecognised_cells = [
 ]
 
 
+def print_(msg, print_it=True):  # print_it=False when not verbose
+    if print_it:
+        pre = "VirtualWorm >>> "
+        print("%s %s" % (pre, msg.replace("\n", "\n" + pre)))
+
+
 def standardise_name(name):
     new_name = name.strip()
 
@@ -44,10 +50,10 @@ def standardise_name(name):
     elif name in cell_mappings:
         new_name = cell_mappings[name]
 
-    print("Translated name '%s' -> '%s'" % (name, new_name))
+    print_(("Translated name '%s' -> '%s'" % (name, new_name)))
     # assert(is_known_cell(new_name) or new_name in unrecognised_cells), f"Unrecognised C. elegans cell name: {new_name} (was: {name})"
     if not (is_known_cell(new_name) or new_name in unrecognised_cells):
-        print(f"WARNING: Unrecognised C. elegans cell name: {new_name} (was: {name})")
+        print_(f"WARNING: Unrecognised C. elegans cell name: {new_name} (was: {name})")
     return new_name
 
 
@@ -119,7 +125,7 @@ def add_named_objects(
     only_show=[],
     colors={},
     highlight=[],
-    faded_opacity=0.1,
+    faded_opacity=0.05,
     **mesh_kwargs,
 ):
     """Add objects (from read_obj_objects()) preserving their names, adding
@@ -191,7 +197,7 @@ def load_virtualworm_muscles(use_cache=False):
     raises meshcache.CacheError if it hasn't been made."""
     if use_cache:
         return load_meshes(MUSCLES_CACHE)[0]
-    print("Loading virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
+    print_("Loading virtual worm file %s..." % BODY_WALL_MUSCLE_OBJ_FILE)
     return read_obj_objects(BODY_WALL_MUSCLE_OBJ_FILE)
 
 
@@ -205,7 +211,7 @@ def add_virtualworm_muscles(
     highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
-    print("Adding virtual worm muscles...")
+    print_("Adding virtual worm muscles...")
     return add_named_objects(
         plotter,
         objects,
@@ -223,7 +229,7 @@ def load_virtualworm_neurons(use_cache=False):
     use_cache: as for load_virtualworm_muscles()"""
     if use_cache:
         return load_meshes(NEURONS_CACHE)[0]
-    print("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
+    print_("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
     return read_obj_objects(NEURONS_OBJ_FILE)
 
 
@@ -243,7 +249,7 @@ def add_virtualworm_neurons(
     highlight=[],
 ):
     """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
-    print("Adding virtual worm neurons...")
+    print_("Adding virtual worm neurons...")
     return add_named_objects(
         plotter,
         objects,
@@ -258,7 +264,7 @@ def add_virtualworm_neurons(
 
 def print_picked_name(actor):
     cell = actor.name
-    print(
+    print_(
         "Picked cell: %s (%s)"
         % (cell, cell_notes[cell] if cell in cell_notes else "Unknown cell!")
     )

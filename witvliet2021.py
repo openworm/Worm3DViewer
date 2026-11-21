@@ -37,6 +37,12 @@ CACHE_DECIMATE = 0.8
 CACHE_NAME = "witvliet2021"
 
 
+def print_(msg, print_it=True):  # print_it=False when not verbose
+    if print_it:
+        pre = "Witvliet2021 >>> "
+        print("%s %s" % (pre, msg.replace("\n", "\n" + pre)))
+
+
 def find_stl_files(models_dir=DEFAULT_DIR):
     """dict of cell name -> STL file, for files named NAME-SEM_adult.stl"""
     files = {}
@@ -62,11 +68,11 @@ def load_stl_neurons(models_dir=DEFAULT_DIR, decimate=0.0, use_cache=False):
 
     files = find_stl_files(models_dir)
     if not files:
-        print(
+        print_(
             "WARNING: no *%s files in %s; run ./download_witvliet2021.sh"
             % (SUFFIX, models_dir)
         )
-    print("Loading %i cell STL files from %s..." % (len(files), models_dir))
+    print_("Loading %i cell STL files from %s..." % (len(files), models_dir))
     meshes = {}
     for name, path in files.items():
         mesh = pv.read(path)
@@ -108,7 +114,7 @@ def add_stl_neurons(
     only_show=[],
     colors={},
     highlight=[],
-    faded_opacity=0.1,
+    faded_opacity=0.05,
     center=True,
 ):
     """Add (some of) the cells from load_stl_neurons() to the plotter.
@@ -176,7 +182,7 @@ if __name__ == "__main__":
 
     plotter = pv.Plotter()
     actors = add_stl_neurons(plotter, meshes)
-    print(
+    print_(
         "Plotted %i cells, %i points in total"
         % (len(actors), sum(m.n_points for m in meshes.values()))
     )
@@ -188,7 +194,7 @@ if __name__ == "__main__":
         """Print the name of the clicked cell and show it on the canvas"""
         name = actor.name
         kind = "neuron" if cells.is_any_neuron(name) else "cell"
-        print("Picked %s: %s" % (kind, name))
+        print_("Picked %s: %s" % (kind, name))
         # a fixed name, so each click replaces the previous label
         plotter.add_text(
             name, position="upper_left", font_size=16, color="black", name="picked"

@@ -253,7 +253,7 @@ def build_scene(
             rotate_y=STL_ROTATE[1],
             rotate_z=STL_ROTATE[2],
             translate=(
-                -(0.8 + vw_muscles + vw_neurons) * 0.8 *spacing + STL_OFFSET[0],
+                -(0.8 + vw_muscles + vw_neurons) * 0.8 * spacing + STL_OFFSET[0],
                 STL_OFFSET[1],
                 STL_OFFSET[2],
             ),
@@ -439,7 +439,7 @@ selection = (
 
 if st_mode:
     try:
-        with st.spinner("Worm models are being loading...", show_time=True):
+        with st.spinner("Loading worm models...", show_time=True):
             plotter = build_scene(*selection)
     except CacheError as e:
         st.error(str(e))
@@ -472,12 +472,15 @@ if st_mode:
         )
         view_key += "_sp%d" % spacing
 
-        # The panel backend needs no extra dependencies (the default, trame, does)
-        stpyvista(plotter, backend="panel", key=view_key)
-        # The scene is exported to the browser by now. Close the plotter, as a
-        # new one is built on every rerun and would otherwise be left holding
-        # its render window and meshes.
-        plotter.close()
+        with st.spinner("Displaying worm models...", show_time=True):
+            # The panel backend needs no extra dependencies (the default, trame, does)
+            stpyvista(plotter, backend="panel", key=view_key)
+            # The scene is exported to the browser by now. Close the plotter, as a
+            # new one is built on every rerun and would otherwise be left holding
+            # its render window and meshes.
+            plotter.close()
+
+            print_("Scene rendered in the browser (Streamlit mode).")
     pass
 else:
     plotter.show()
