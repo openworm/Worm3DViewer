@@ -5,3 +5,5 @@ __pycache__
 /cache/virtualworm_muscles.npz
 /cache/virtualworm_neurons.npz
 /cache/witvliet2021.npz
+/cache/neuroml_canonical.npz
+/cache/neuroml_c302_somas.npz
