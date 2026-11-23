@@ -32,7 +32,7 @@ COPY NeuroML2/cells/* ./NeuroML2/cells/
 
 # Build the mesh caches (in ./cache) that the app reads: it does not build meshes
 # itself (see meshcache.py)
-RUN python neuromlmodel.py -cache \
+RUN python models3d.py -cache \
     && python virtualworm.py -cache \
     && python witvliet2021.py -cache
 

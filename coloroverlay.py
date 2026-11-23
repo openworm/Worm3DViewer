@@ -20,7 +20,7 @@ import numpy as np
 class ColorOverlay:
     WORMATLAS = "WormAtlas cell colors"
     WORMATLAS_SIB = "WormAtlas + Sibernetic colors"
-    DEFAULT = "Default (3D views' own colors)"
+    DEFAULT = "Default (3D models' own colors)"
     RANDOM = "Random color per cell"
 
     # The options, with a description of each. The first is the default one

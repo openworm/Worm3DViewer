@@ -1,10 +1,6 @@
 from coloroverlay import ColorOverlay
 from meshcache import CacheError
-from neuromlmodel import add_neuroml_meshes, load_neuroml_cache  # noqa: F401
-from SiberneticReplay import add_sibernetic_model  # noqa: F401
-from witvliet2021 import add_stl_neurons, load_stl_neurons  # noqa: F401
-from virtualworm import add_virtualworm_muscles, load_virtualworm_muscles  # noqa: F401
-from virtualworm import add_virtualworm_neurons, load_virtualworm_neurons  # noqa: F401
+from models3d import DEFAULT_SPACING, Models3D, SceneOptions
 
 import os
 import platform
@@ -15,7 +11,7 @@ import sys
 
 import pyvista as pv
 
-version = "v0.3.5"
+version = "v0.3.8"
 
 stpyvista_version = "0.1.4"
 
@@ -133,27 +129,9 @@ div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]
         unsafe_allow_html=True,
     )
 
-## Default selection of models to show (the checkboxes below override these
-## in Streamlit mode)
-adding_sibernetic_model = False
-adding_neuroml_model = False
-adding_virtualworm_muscles = False
-adding_virtualworm_neurons = True
-adding_stl_neurons = False
-
-
-# Default spacing between the worms (the slider in Streamlit mode can lower it)
-DEFAULT_SPACING = 50
+# Distance between the worms: DEFAULT_SPACING, which the slider in Streamlit mode can lower
 
 NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
-
-# Scale of the STL neurons, to match the other models
-STL_SCALE = 0.33
-# Move of the STL cells (x, y, z), after the scaling and rotation, on top of
-# their place next to the VirtualWorm models
-STL_OFFSET = (0, 8, 52)
-# Rotation (degrees about x, y, z) of the STL cells, to match the other models
-STL_ROTATE = (270, 90, 0)
 
 
 # The meshes of the models are read from the mesh caches (made by running the
@@ -165,35 +143,17 @@ def _cached(func):
     return st.cache_resource(show_spinner=True)(func) if st_mode else func
 
 
-@_cached
-def get_neuroml_meshes():
-    return load_neuroml_cache()
-
-
-@_cached
-def get_virtualworm_muscles():
-    return load_virtualworm_muscles(use_cache=True)
-
-
-@_cached
-def get_virtualworm_neurons():
-    return load_virtualworm_neurons(use_cache=True)
-
-
-@_cached
-def get_stl_neurons():
-    return load_stl_neurons(use_cache=True)
+# The 3D models that can be shown (see models3d.py to add one)
+models3d = Models3D(cache=_cached)
 
 
 def get_cell_groups(nml_file):
     """Groups of cell names (present in the NeuroML file) to select from.
     An empty list means "all cells"."""
-    import re
 
     import cect.Cells as cells
 
-    with open(nml_file) as f:
-        ids = re.findall(r'<population id="([^"]*)"', f.read())
+    ids = cells.ALL_PREFERRED_CELL_NAMES
 
     def present(names):
         return [i for i in ids if i in names]
@@ -211,87 +171,31 @@ def get_cell_groups(nml_file):
 
 
 def build_scene(
-    sibernetic,
-    neuroml,
-    vw_muscles,
-    vw_neurons,
-    stl_neurons=False,
+    selected,
     only_show=(),
     highlight=(),
     colors={},
     background=None,
     spacing=DEFAULT_SPACING,
 ):
-    """Build a plotter containing the selected models"""
+    """Build a plotter containing the selected models (selected: dict of model key
+    -> whether it is shown, see models3d.py)"""
     # Off-screen in Streamlit mode: the script runs on a non-main thread, where
     # on-screen rendering (e.g. Cocoa on macOS) aborts
     plotter = pv.Plotter(window_size=[800, 800], off_screen=st_mode)
     if background:
         plotter.set_background(background)
 
-    if vw_neurons:
-        print_("Adding VirtualWorm neurons...")
-        add_virtualworm_neurons(
-            plotter,
-            get_virtualworm_neurons(),
-            translate=((-0.8 * spacing - (vw_muscles * spacing)), 0, 0),
+    models3d.add_to_plotter(
+        plotter,
+        SceneOptions(
+            selected=selected,
+            spacing=spacing,
             only_show=list(only_show),
             highlight=list(highlight),
             colors=colors,
-        )
-
-    if vw_muscles:
-        print_("Adding VirtualWorm muscles...")
-        add_virtualworm_muscles(
-            plotter,
-            get_virtualworm_muscles(),
-            translate=(-1 * spacing, 0, 0),
-            only_show=list(only_show),
-            highlight=list(highlight),
-            colors=colors,
-        )
-
-    if stl_neurons:
-        print_("Adding Witvliet et al 2021 cells...")
-        # to the left of the VirtualWorm worms
-        add_stl_neurons(
-            plotter,
-            get_stl_neurons(),
-            scale=STL_SCALE,
-            rotate_x=STL_ROTATE[0],
-            rotate_y=STL_ROTATE[1],
-            rotate_z=STL_ROTATE[2],
-            translate=(
-                -(0.8 + vw_muscles + vw_neurons) * 0.8 * spacing + STL_OFFSET[0],
-                STL_OFFSET[1],
-                STL_OFFSET[2],
-            ),
-            only_show=list(only_show),
-            highlight=list(highlight),
-            colors=colors,
-        )
-
-    if neuroml:
-        print_("Adding NeuroML model...")
-        # the scale and rotation of the cells are fixed in the cache
-        add_neuroml_meshes(
-            plotter,
-            *get_neuroml_meshes(),
-            only_show=list(only_show),
-            highlight=list(highlight),
-            colors=colors,
-        )  # at 0...
-
-    if sibernetic:
-        print_("Adding Sibernetic model...")
-        add_sibernetic_model(
-            plotter,
-            swap_y_z=True,
-            offset3d=(spacing, -50, -100),
-            show_footprint=False,
-            only_show=list(only_show),
-            colors=colors,
-        )
+        ),
+    )
 
     plotter.add_axes()  # the xyz axes indicator
     plotter.set_viewup([0, 10, 0])
@@ -309,6 +213,8 @@ highlight = []
 colour_option = COLOUR_OPTIONS[0]
 background_option = "Green"
 spacing = DEFAULT_SPACING
+# model key -> shown; the checkboxes below override these defaults in Streamlit mode
+selected_models = models3d.defaults()
 
 
 # The Refresh button is disabled until an option in the form is changed. Changing
@@ -400,28 +306,17 @@ if st_mode:
 
         with p_canvas.container(border=True):
             panel_title("3D Canvas")
-            c1, c2 = st.columns(2)
-            adding_virtualworm_neurons = c1.checkbox(
-                "VirtualWorm neurons",
-                value=adding_virtualworm_neurons,
-                key="cb_vw_neurons",
-            )
-            adding_virtualworm_muscles = c2.checkbox(
-                "VirtualWorm muscles",
-                value=adding_virtualworm_muscles,
-                key="cb_vw_muscles",
-            )
-            adding_neuroml_model = c1.checkbox(
-                "NeuroML model (c302)", value=adding_neuroml_model, key="cb_neuroml"
-            )
-            adding_sibernetic_model = c2.checkbox(
-                "Sibernetic model", value=adding_sibernetic_model, key="cb_sibernetic"
-            )
-            adding_stl_neurons = c1.checkbox(
-                "Witvliet et al 2021 adult cells",
-                value=adding_stl_neurons,
-                key="cb_stl",
-            )
+            # the checkboxes of all the models, filling two columns across
+            checkbox_cols = st.columns(2)
+            selected_models = {
+                m.key: checkbox_cols[n % 2].checkbox(
+                    m.label,
+                    value=m.default,
+                    key="cb_" + m.key,
+                    help=m.description,
+                )
+                for n, m in enumerate(models3d.models)
+            }
 
         with p_subsets.container(border=True):
             panel_title("Select Subsets")
@@ -518,28 +413,24 @@ if st_mode:
 # Empty dict -> each model uses its own colors
 colors = color_overlay.get_colors(colour_option, all_cell_ids if st_mode else [])
 
-selection = (
-    adding_sibernetic_model,
-    adding_neuroml_model,
-    adding_virtualworm_muscles,
-    adding_virtualworm_neurons,
-    adding_stl_neurons,
-    tuple(only_show),
-    tuple(highlight),
-    colors,
-    BACKGROUNDS[background_option] if st_mode else None,
-    spacing,
+selection = dict(
+    selected=selected_models,
+    only_show=tuple(only_show),
+    highlight=tuple(highlight),
+    colors=colors,
+    background=BACKGROUNDS[background_option] if st_mode else None,
+    spacing=spacing,
 )
 
 if st_mode:
     try:
         with st.spinner("Loading worm models...", show_time=True):
-            plotter = build_scene(*selection)
+            plotter = build_scene(**selection)
     except CacheError as e:
         st.error(str(e))
         st.stop()
 else:
-    plotter = build_scene(*selection)
+    plotter = build_scene(**selection)
 
 print_("Created the scene...")
 
@@ -551,13 +442,7 @@ if st_mode:
 
         # The key depends on the selection so the view is re-mounted (and so
         # updated) when a checkbox changes
-        view_key = "pv_Sib%d_NML%d_VWM%d_VWN%d_STL%d" % (
-            adding_sibernetic_model,
-            adding_neuroml_model,
-            adding_virtualworm_muscles,
-            adding_virtualworm_neurons,
-            adding_stl_neurons,
-        )
+        view_key = "pv_" + models3d.selection_key(selected_models)
         view_key += "_%d_%d_%s_%s" % (
             hash(tuple(only_show)),
             hash(tuple(highlight)),

@@ -10,12 +10,6 @@ from neuroml import Cell
 
 from meshcache import load_meshes, save_meshes
 
-# The mesh cache (see meshcache.py) holds the model shown by the Streamlit app
-CACHE_NAME = "neuroml_c302"
-CACHE_NML_FILE = "NeuroML2/c302_D_Full.net.nml"
-CACHE_MESH_PARAMS = dict(somas_only=False, factor=0.2, rotate_x=-90)
-CACHE_PARAMS = dict(CACHE_MESH_PARAMS, file=CACHE_NML_FILE)
-
 
 def print_(msg, print_it=True):  # print_it=False when not verbose
     if print_it:
@@ -261,7 +255,7 @@ def build_neuroml_meshes(
             )
             glyphs = point_cloud.glyph(geom=cell_mesh, scale=False, orient=False)
         else:
-            sphere = make_sphere((0.0, 0.0, 0.0), radius)
+            sphere = make_sphere((0.0, 0.0, 0.0), radius * factor)
             glyphs = point_cloud.glyph(geom=sphere, scale=False, orient=False)
 
         items.append((pop_id, glyphs))
@@ -279,12 +273,14 @@ def add_neuroml_meshes(
     colors={},
     highlight=[],
     faded_opacity=0.05,
+    translate=(0, 0, 0),
 ):
     """Add (some of) the populations from build_neuroml_meshes() (or the mesh
-    cache) to the plotter. They are not modified.
+    cache) to the plotter, moved by translate. They are not modified.
 
     only_show, colors, highlight: as for add_neuroml_model()
     """
+    move = bool(np.any(translate))
     for (pop_id, mesh), pop_info in zip(items, info):
         if only_show and pop_id not in only_show:
             continue
@@ -292,6 +288,8 @@ def add_neuroml_meshes(
         # color: given in colors, else the default one
         color = colors[pop_id] if pop_id in colors else pop_info["color"]
         opacity = faded_opacity if highlight and pop_id not in highlight else 1.0
+        if move:
+            mesh = mesh.translate(translate, inplace=False)  # a copy
 
         if pop_info["smooth"]:
             plotter.add_mesh(mesh, color=color, opacity=opacity, smooth_shading=True)
@@ -336,26 +334,22 @@ def add_neuroml_model(
     )
 
 
-def build_cache():
-    """Make the mesh cache of the NeuroML model that the Streamlit app shows
-    (CACHE_NML_FILE, with CACHE_PARAMS)"""
-    items, info = build_neuroml_meshes(
-        load_neuroml_model(CACHE_NML_FILE), **CACHE_MESH_PARAMS
-    )
-    save_meshes(CACHE_NAME, items, params=CACHE_PARAMS, info=info)
+def save_neuroml_cache(cache_name, nml_file, **mesh_params):
+    """Build the meshes of a NeuroML file (with build_neuroml_meshes(), so
+    mesh_params are its somas_only, factor and rotate_x/y/z) and save them as the
+    mesh cache `cache_name` (see meshcache.py), for load_neuroml_cache()."""
+    items, info = build_neuroml_meshes(load_neuroml_model(nml_file), **mesh_params)
+    save_meshes(cache_name, items, params=dict(mesh_params, file=nml_file), info=info)
 
 
-def load_neuroml_cache():
-    """Read the mesh cache made by -cache. Returns (items, info) for
-    add_neuroml_meshes(). Raises meshcache.CacheError if it hasn't been made."""
-    return load_meshes(CACHE_NAME, params=CACHE_PARAMS)
+def load_neuroml_cache(cache_name, nml_file, **mesh_params):
+    """Read the mesh cache made by save_neuroml_cache() with the same nml_file and
+    mesh_params. Returns (items, info) for add_neuroml_meshes(). Raises
+    meshcache.CacheError if it hasn't been made (or was made with other ones)."""
+    return load_meshes(cache_name, params=dict(mesh_params, file=nml_file))
 
 
 if __name__ == "__main__":
-    if "-cache" in sys.argv:
-        build_cache()
-        sys.exit(0)
-
     plotter = pv.Plotter()
 
     c302_nml = "NeuroML2/c302_D_Full.net.nml"
