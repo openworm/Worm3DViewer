@@ -1,3 +1,4 @@
+from coloroverlay import ColorOverlay
 from meshcache import CacheError
 from neuromlmodel import add_neuroml_meshes, load_neuroml_cache  # noqa: F401
 from SiberneticReplay import add_sibernetic_model  # noqa: F401
@@ -10,9 +11,7 @@ import platform
 import shutil
 import subprocess
 import sys
-import zlib
 
-import numpy as np
 
 import pyvista as pv
 
@@ -163,7 +162,7 @@ STL_ROTATE = (270, 90, 0)
 # re-adds cells to a new plotter. They are not modified when adding them to a
 # plotter, so sharing is safe.
 def _cached(func):
-    return st.cache_resource(show_spinner=False)(func) if st_mode else func
+    return st.cache_resource(show_spinner=True)(func) if st_mode else func
 
 
 @_cached
@@ -299,16 +298,8 @@ def build_scene(
     return plotter
 
 
-def random_colors(names):
-    """A dict of a random (but repeatable for a given name) rgb color per name"""
-    return {
-        name: tuple(np.random.default_rng(zlib.crc32(name.encode())).random(3))
-        for name in names
-    }
-
-
-RANDOM_OPTION = "Random color per cell"
-COLOUR_OPTIONS = ["Default", RANDOM_OPTION]  # the first is the default in the UI
+color_overlay = ColorOverlay()
+COLOUR_OPTIONS = color_overlay.options  # the first is the default in the UI
 
 # Background of the 3D view; green matches the page (OpenWorm green)
 BACKGROUNDS = {"Green": "#9dbe45", "White": "white", "Black": "black"}
@@ -483,8 +474,10 @@ if st_mode:
                 COLOUR_OPTIONS,
                 key="sel_colours",
                 label_visibility="collapsed",
-                help="Colours to use: Default = those in each loaded model; "
-                f"{RANDOM_OPTION} = a random colour for each named cell",
+                help="Colours to use:\n"
+                + "\n".join(
+                    f"- {o}: {d}" for o, d in ColorOverlay.DESCRIPTIONS.items()
+                ),
             )
 
         with p_settings.container(border=True):
@@ -523,7 +516,7 @@ if st_mode:
     st.html(REFRESH_GUARD_JS, unsafe_allow_javascript=True)
 
 # Empty dict -> each model uses its own colors
-colors = random_colors(all_cell_ids) if colour_option == RANDOM_OPTION else {}
+colors = color_overlay.get_colors(colour_option, all_cell_ids if st_mode else [])
 
 selection = (
     adding_sibernetic_model,
