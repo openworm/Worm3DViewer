@@ -325,6 +325,7 @@ if st_mode:
             group = show_col.selectbox(
                 "Cells to show",
                 list(groups.keys()),
+                index=list(groups).index("Only neurons"),
                 key="sel_cell_group",
                 label_visibility="collapsed",
                 help="Which cells to show",

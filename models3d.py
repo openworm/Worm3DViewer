@@ -22,12 +22,7 @@ from typing import Any, Callable, Optional
 
 from neuromlmodel import add_neuroml_meshes, load_neuroml_cache, save_neuroml_cache
 from SiberneticReplay import add_sibernetic_model
-from virtualworm import (
-    add_virtualworm_muscles,
-    add_virtualworm_neurons,
-    load_virtualworm_muscles,
-    load_virtualworm_neurons,
-)
+from virtualworm import add_virtualworm, load_virtualworm
 from witvliet2021 import add_stl_neurons, load_stl_neurons
 
 # Default distance between the worms (the app's slider can lower it)
@@ -40,6 +35,10 @@ STL_SCALE = 0.33
 STL_ROTATE = (270, 90, 0)
 STL_OFFSET = (0, 8, 52)
 
+NEUROML_FULL = "neuroml_full"
+NEUROML_SOMAS = "neuroml_somas"
+NEUROML_CANONICAL = "canonical"
+
 # The NeuroML models: model key -> the mesh cache, the NeuroML file and the
 # scale/rotation (degrees) that its meshes are built with (see
 # neuromlmodel.build_neuroml_meshes()). `python models3d.py -cache` builds the caches.
@@ -48,22 +47,22 @@ STL_OFFSET = (0, 8, 52)
 # (the first is at 0).
 NEUROML_MODELS = {
     # the cells have their own morphologies, in the file's frame
-    "neuroml": dict(
-        cache="neuroml_c302",
+    NEUROML_FULL: dict(
+        cache=NEUROML_FULL,
         file="NeuroML2/c302_D_Full.net.nml",
         mesh_params=dict(somas_only=False, factor=0.2, rotate_x=-90),
     ),
     # the same network, but with each cell just a sphere (its soma) at its position,
     # in the same frame as c302
-    "neuroml_somas": dict(
-        cache="neuroml_c302_somas",
+    NEUROML_SOMAS: dict(
+        cache=NEUROML_SOMAS,
         file="NeuroML2/c302_C2_Full.net.nml",
         mesh_params=dict(somas_only=False, factor=0.2, rotate_x=-90),
     ),
     # a sphere per neuron, along x (head at 0) up to ~800: scaled and rotated to
     # match the c302 model's frame, and moved by CANONICAL_TRANSLATE
-    "canonical": dict(
-        cache="neuroml_canonical",
+    NEUROML_CANONICAL: dict(
+        cache=NEUROML_CANONICAL,
         file="NeuroML2/NeuroPAL_Canonical.net.nml",
         mesh_params=dict(somas_only=False, factor=0.184, rotate_y=90),
     ),
@@ -126,22 +125,11 @@ class Model3D:
 # -- the models: where they are placed, and adding them to a plotter ------------
 
 
-def _add_virtualworm_neurons(plotter, data, o):
-    add_virtualworm_neurons(
+def _add_virtualworm(plotter, data, o):
+    add_virtualworm(
         plotter,
         data,
-        translate=(-(0.8 + o.is_shown("vw_muscles")) * o.spacing, 0, 0),
-        only_show=o.only_show,
-        highlight=o.highlight,
-        colors=o.colors,
-    )
-
-
-def _add_virtualworm_muscles(plotter, data, o):
-    add_virtualworm_muscles(
-        plotter,
-        data,
-        translate=(-1 * o.spacing, 0, 0),
+        translate=(-o.spacing, 0, 0),
         only_show=o.only_show,
         highlight=o.highlight,
         colors=o.colors,
@@ -150,7 +138,7 @@ def _add_virtualworm_muscles(plotter, data, o):
 
 def _add_stl_neurons(plotter, data, o):
     # to the left of the VirtualWorm worms
-    x = -(0.8 + o.is_shown("vw_muscles") + o.is_shown("vw_neurons")) * o.spacing
+    x = -(0.8 + o.is_shown("virtualworm")) * o.spacing
     add_stl_neurons(
         plotter,
         data,
@@ -210,34 +198,29 @@ class Models3D:
     def __init__(self, cache=functools.cache):
         self.models = [
             Model3D(
-                key="vw_neurons",
-                label="VirtualWorm neurons",
-                description="The neurons of the VirtualWorm 3D model",
-                load=lambda: load_virtualworm_neurons(use_cache=True),
-                add=_add_virtualworm_neurons,
+                key="virtualworm",
+                label="VirtualWorm",
+                description="The VirtualWorm 3D model: the neurons and the body wall "
+                "muscles (which cover the body). Use the cell selection to show "
+                "just the neurons or just the muscles",
+                load=lambda: load_virtualworm(use_cache=True),
+                add=_add_virtualworm,
                 default=True,
             ),
             Model3D(
-                key="vw_muscles",
-                label="VirtualWorm muscles",
-                description="The body wall muscles of the VirtualWorm 3D model",
-                load=lambda: load_virtualworm_muscles(use_cache=True),
-                add=_add_virtualworm_muscles,
-            ),
-            Model3D(
-                key="neuroml",
+                key=NEUROML_FULL,
                 label="NeuroML model (c302)",
                 description="The cells of the c302 NeuroML model",
-                load=lambda: _load_neuroml("neuroml"),
-                add=_neuroml_adder("neuroml"),
+                load=lambda: _load_neuroml(NEUROML_FULL),
+                add=_neuroml_adder(NEUROML_FULL),
             ),
             Model3D(
-                key="neuroml_somas",
+                key=NEUROML_SOMAS,
                 label="NeuroML model (somas only)",
                 description="The c302 NeuroML model with each cell just a soma, "
                 "at the same positions as the cells of the c302 model",
-                load=lambda: _load_neuroml("neuroml_somas"),
-                add=_neuroml_adder("neuroml_somas"),
+                load=lambda: _load_neuroml(NEUROML_SOMAS),
+                add=_neuroml_adder(NEUROML_SOMAS),
             ),
             Model3D(
                 key="sibernetic",
@@ -255,11 +238,11 @@ class Models3D:
                 add=_add_stl_neurons,
             ),
             Model3D(
-                key="canonical",
+                key=NEUROML_CANONICAL,
                 label="Canonical atlas (Skuhersky et al. 2022)",
                 description='"Canonical" neuron positions, as calculated in: Toward a more accurate 3D atlas of C. elegans neurons (Skuhersky et al. 2022).',
-                load=lambda: _load_neuroml("canonical"),
-                add=_neuroml_adder("canonical", CANONICAL_TRANSLATE),
+                load=lambda: _load_neuroml(NEUROML_CANONICAL),
+                add=_neuroml_adder(NEUROML_CANONICAL, CANONICAL_TRANSLATE),
             ),
         ]
         self._by_key = {m.key: m for m in self.models}

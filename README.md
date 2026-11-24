@@ -50,7 +50,7 @@ The controls are in four panels above the 3D view, in the order they are intende
 
 | Panel | Controls |
 |---|---|
-| **3D Canvas** | Which models to show: VirtualWorm neurons, VirtualWorm muscles, the NeuroML model, the Sibernetic model |
+| **3D Canvas** | Which models to show: VirtualWorm, NeuroML models, Sibernetic model, etc. |
 | **Select Subsets** | Which cells to show: all cells, only muscles, only neurons, sensory neurons, interneurons, motor neurons, pharyngeal neurons, or "Specific cells..." for a list picked by name. The same cells are shown in each worm |
 | **Color Overlay** | **Default** uses the colours of each loaded model; **Random** gives each named cell a random colour (repeatable for a given name, and the same in every model) |
 | **Display Options** | Background colour of the 3D view (green, white or black) and the spacing between the worms (0 to 50: lower values move them closer together) |
@@ -76,7 +76,7 @@ Each data source has its own module with an `add_*(plotter, ...)` function that 
 | `app.py` | The Streamlit app: the control panels, building the scene from the controls, and the page styling. The `-gui` argument runs the same scene in a desktop window instead |
 | `load.py` | The same models combined in a desktop (non-Streamlit) window |
 | `neuromlmodel.py` | `load_neuroml_model(file)` reads a NeuroML file; `add_neuroml_model(plotter, nml_doc, ...)` adds its cells. The geometry of each cell is built once and kept on the loaded document, so adding it again is fast |
-| `virtualworm.py` | `load_virtualworm_muscles()` / `load_virtualworm_neurons()` read the meshes; `add_virtualworm_muscles()` / `add_virtualworm_neurons()` add them |
+| `virtualworm.py` | `load_virtualworm()` reads the muscle and neuron meshes (one coordinate system); `add_virtualworm()` adds them |
 | `SiberneticReplay.py` | `add_sibernetic_model()`: a time series replay of Sibernetic output with play, rewind and fast forward buttons, a time slider, toggles for the particle types and charts of the muscle activation and body curvature |
 | `SibSimulation.py` | The data layer for the replay (no GUI): reads `position_buffer.txt` and/or `report.json` from a Sibernetic run directory |
 | `sibernetic_muscles.py` | Maps the named Sibernetic muscles to particles (see below) |
