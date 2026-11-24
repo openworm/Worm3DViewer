@@ -50,7 +50,11 @@ class ColorOverlay:
         if option == self.WORMATLAS_SIB:
             wa_sib_colors = self._wormatlas_colors(names)
             for name in names:
-                if name.startswith("MD") or name.startswith("MVL")or name.startswith("MVR"):
+                if (
+                    name.startswith("MD")
+                    or name.startswith("MVL")
+                    or name.startswith("MVR")
+                ):
                     index = int(name[3:])
                     wa_sib_colors[name] = (
                         "#faa2a2"

@@ -192,7 +192,7 @@ def add_named_objects(
 
 
 def load_virtualworm_muscles(use_cache=False):
-    """Read the VirtualWorm muscles mesh file, for add_virtualworm_muscles().
+    """Read the VirtualWorm muscles mesh file, for add_virtualworm().
     use_cache: read the (much faster) cache made by -cache instead, which
     raises meshcache.CacheError if it hasn't been made."""
     if use_cache:
@@ -201,7 +201,23 @@ def load_virtualworm_muscles(use_cache=False):
     return read_obj_objects(BODY_WALL_MUSCLE_OBJ_FILE)
 
 
-def add_virtualworm_muscles(
+def load_virtualworm_neurons(use_cache=False):
+    """Read the VirtualWorm neurons mesh file, for add_virtualworm().
+    use_cache: as for load_virtualworm_muscles()"""
+    if use_cache:
+        return load_meshes(NEURONS_CACHE)[0]
+    print_("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
+    return read_obj_objects(NEURONS_OBJ_FILE)
+
+
+def load_virtualworm(use_cache=False):
+    """Read the whole VirtualWorm model, the muscles and the neurons (which share
+    one coordinate system: the muscles cover the body), as one list of
+    (name, mesh) for add_virtualworm(). use_cache: as for load_virtualworm_muscles()"""
+    return load_virtualworm_muscles(use_cache) + load_virtualworm_neurons(use_cache)
+
+
+def add_virtualworm(
     plotter,
     objects,
     scale=20,
@@ -210,8 +226,10 @@ def add_virtualworm_muscles(
     colors={},
     highlight=[],
 ):
-    """Add (some of) the objects from load_virtualworm_muscles() to the plotter"""
-    print_("Adding virtual worm muscles...")
+    """Add (some of) the objects from load_virtualworm() to the plotter: muscles
+    and neurons in the same coordinate system. Choose what is shown with
+    only_show (e.g. just the neurons)."""
+    print_("Adding virtual worm...")
     return add_named_objects(
         plotter,
         objects,
@@ -222,44 +240,12 @@ def add_virtualworm_muscles(
         highlight=highlight,
         smooth_shading=True,
     )
-
-
-def load_virtualworm_neurons(use_cache=False):
-    """Read the VirtualWorm neurons mesh file, for add_virtualworm_neurons().
-    use_cache: as for load_virtualworm_muscles()"""
-    if use_cache:
-        return load_meshes(NEURONS_CACHE)[0]
-    print_("Loading virtual worm file %s..." % NEURONS_OBJ_FILE)
-    return read_obj_objects(NEURONS_OBJ_FILE)
 
 
 def build_cache():
     """Make the mesh caches of the muscles and the neurons"""
     save_meshes(MUSCLES_CACHE, load_virtualworm_muscles())
     save_meshes(NEURONS_CACHE, load_virtualworm_neurons())
-
-
-def add_virtualworm_neurons(
-    plotter,
-    objects,
-    scale=20,
-    translate=(-80, 0, 0),
-    only_show=[],
-    colors={},
-    highlight=[],
-):
-    """Add (some of) the objects from load_virtualworm_neurons() to the plotter"""
-    print_("Adding virtual worm neurons...")
-    return add_named_objects(
-        plotter,
-        objects,
-        scale=scale,
-        translate=translate,
-        only_show=only_show,
-        colors=colors,
-        highlight=highlight,
-        smooth_shading=True,
-    )
 
 
 def print_picked_name(actor):
@@ -277,8 +263,7 @@ if __name__ == "__main__":
 
     pl = pv.Plotter()
 
-    add_virtualworm_muscles(pl, load_virtualworm_muscles())
-    add_virtualworm_neurons(pl, load_virtualworm_neurons())
+    add_virtualworm(pl, load_virtualworm())
 
     pl.enable_mesh_picking(
         callback=print_picked_name,
