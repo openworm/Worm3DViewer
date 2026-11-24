@@ -1,4 +1,4 @@
-# Theme for the OpenWorm 3D Viewer: the colour of selected checkboxes, the
+# Theme for the OpenWorm 3D Viewer: the color of selected checkboxes, the
 # slider, selected buttons etc. (the default is red). Matches --ow-dark in app.py
 [theme]
 base = "light"
