@@ -258,6 +258,17 @@ class Models3D:
         """dict of model key -> whether it is shown at first"""
         return {m.key: m.default for m in self.models}
 
+    def from_query(self, values):
+        """The models to show at first, given the values of the URL's `model3d`
+        query parameter (a list of strings, each of which can hold several model
+        keys separated by commas). Returns (dict of model key -> shown, list of
+        the unknown keys). With no values, the defaults (as defaults())."""
+        requested = [k.strip() for v in values for k in v.split(",") if k.strip()]
+        unknown = [k for k in requested if k not in self._by_key]
+        if not [k for k in requested if k not in unknown]:
+            return self.defaults(), unknown
+        return {m.key: m.key in requested for m in self.models}, unknown
+
     def get_data(self, key):
         """The (cached) data of a model, for its add function; None if it has no
         load function. Raises meshcache.CacheError if a mesh cache is missing."""

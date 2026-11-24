@@ -77,6 +77,7 @@ Each data source has its own module with an `add_*(plotter, ...)` function that 
 | `load.py` | The same models combined in a desktop (non-Streamlit) window |
 | `neuromlmodel.py` | `load_neuroml_model(file)` reads a NeuroML file; `add_neuroml_model(plotter, nml_doc, ...)` adds its cells. The geometry of each cell is built once and kept on the loaded document, so adding it again is fast |
 | `virtualworm.py` | `load_virtualworm()` reads the muscle and neuron meshes (one coordinate system); `add_virtualworm()` adds them |
+| `urlparams.py` | Reads the options given in the URL (`?model3d=...&show=...&highlight=...&colours=...&background=...&spacing=...`) as the initial values of the controls |
 | `SiberneticReplay.py` | `add_sibernetic_model()`: a time series replay of Sibernetic output with play, rewind and fast forward buttons, a time slider, toggles for the particle types and charts of the muscle activation and body curvature |
 | `SibSimulation.py` | The data layer for the replay (no GUI): reads `position_buffer.txt` and/or `report.json` from a Sibernetic run directory |
 | `sibernetic_muscles.py` | Maps the named Sibernetic muscles to particles (see below) |

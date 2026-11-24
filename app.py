@@ -11,6 +11,8 @@ import sys
 
 import pyvista as pv
 
+import urlparams
+
 version = "v0.3.8"
 
 stpyvista_version = "0.1.4"
@@ -299,6 +301,46 @@ if st_mode:
 
     # The controls are in a form, so the 3D view is only redisplayed when the
     # Refresh button (in Display Options) is pressed, not on every click
+    # Options given in the URL (e.g. ?model3d=sibernetic) replace the defaults of
+    # the widgets when the page is first opened
+    qp = st.query_params.get_all
+    url_problems = []
+    initial_models, unknown_models = models3d.from_query(qp("model3d"))
+    if unknown_models:
+        url_problems.append(
+            "unknown model3d %s (use: %s)"
+            % (", ".join(unknown_models), ", ".join(models3d.keys))
+        )
+    init_show, init_show_cells, p = urlparams.cell_choice(
+        qp("show"), list(groups), all_cell_ids
+    )
+    url_problems += ["show: " + m for m in p]
+    init_hl, init_hl_cells, p = urlparams.cell_choice(
+        qp("highlight"), HIGHLIGHT_OPTIONS, all_cell_ids
+    )
+    url_problems += ["highlight: " + m for m in p]
+    init_show = init_show or "Only neurons"
+    init_hl = init_hl or "None"
+    init_colours = (
+        urlparams.single(qp("colours"), "colours", COLOUR_OPTIONS, True, url_problems)
+        or COLOUR_OPTIONS[0]
+    )
+    init_background = (
+        urlparams.single(
+            qp("background"), "background", list(BACKGROUNDS), False, url_problems
+        )
+        or "Green"
+    )
+    init_spacing = urlparams.number(
+        qp("spacing"), "spacing", 0, DEFAULT_SPACING, url_problems
+    )
+    if init_spacing is None:
+        init_spacing = DEFAULT_SPACING
+    if url_problems:
+        st.warning(
+            "Not all of the options in the URL were used: " + "; ".join(url_problems)
+        )
+
     with st.form("controls", border=False):
         # Control panels, in the order they are intended to be used:
         # what to show (Canvas), which cells (Subsets), colours (Overlay), Settings
@@ -311,7 +353,7 @@ if st_mode:
             selected_models = {
                 m.key: checkbox_cols[n % 2].checkbox(
                     m.label,
-                    value=m.default,
+                    value=initial_models[m.key],
                     key="cb_" + m.key,
                     help=m.description,
                 )
@@ -325,7 +367,7 @@ if st_mode:
             group = show_col.selectbox(
                 "Cells to show",
                 list(groups.keys()),
-                index=list(groups).index("Only neurons"),
+                index=list(groups).index(init_show),
                 key="sel_cell_group",
                 label_visibility="collapsed",
                 help="Which cells to show",
@@ -335,7 +377,7 @@ if st_mode:
             chosen_cells = st.multiselect(
                 "Specific cells to show",
                 all_cell_ids,
-                default=["AVAL", "AVAR"],
+                default=init_show_cells or ["AVAL", "AVAR"],
                 key="sel_cells",
                 label_visibility="collapsed",
             )
@@ -346,6 +388,7 @@ if st_mode:
             hl_group = hl_col.selectbox(
                 "Cells to highlight",
                 HIGHLIGHT_OPTIONS,
+                index=HIGHLIGHT_OPTIONS.index(init_hl),
                 key="sel_highlight_group",
                 label_visibility="collapsed",
                 help="Cells to show as normal, with all the other shown cells "
@@ -354,6 +397,7 @@ if st_mode:
             chosen_hl_cells = st.multiselect(
                 "Specific cells to highlight",
                 all_cell_ids,
+                default=init_hl_cells,
                 key="sel_hl_cells",
                 placeholder="Choose cells to highlight",
                 label_visibility="collapsed",
@@ -368,6 +412,7 @@ if st_mode:
             colour_option = st.selectbox(
                 "Colours to use",
                 COLOUR_OPTIONS,
+                index=COLOUR_OPTIONS.index(init_colours),
                 key="sel_colours",
                 label_visibility="collapsed",
                 help="Colours to use:\n"
@@ -382,7 +427,7 @@ if st_mode:
                 st.segmented_control(
                     "Background",
                     list(BACKGROUNDS),
-                    default="Green",
+                    default=init_background,
                     key="sel_background",
                     label_visibility="collapsed",
                     help="Background colour of the 3D view",
@@ -395,7 +440,7 @@ if st_mode:
                 "Worm spacing",
                 min_value=0,
                 max_value=DEFAULT_SPACING,
-                value=DEFAULT_SPACING,
+                value=int(init_spacing),
                 key="sel_spacing",
                 label_visibility="collapsed",
                 help="Distance between the worms: lower values move them closer together",
