@@ -46,6 +46,6 @@
             "highlight": "RMDL,RMDR,RMDDL,RMDDR,RMDVL,RMDVR,RMED",
             "color": "Random color per cell",
             "spacing": "14"
-        },
+        }
     ]
 }
