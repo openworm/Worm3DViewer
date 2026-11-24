@@ -13,7 +13,7 @@ import pyvista as pv
 
 import urlparams
 
-version = "v0.3.8"
+version = "v0.4.0"
 
 stpyvista_version = "0.1.4"
 
@@ -72,8 +72,56 @@ div[data-testid="stVerticalBlock"] { gap: 0.35rem; }
 div[data-testid="stHorizontalBlock"] { gap: 0.5rem; }
 .stApp p.ow-title { color: #fff; font-size: 1.25rem; font-weight: 600; margin: 0;
             line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.ow-header { display: flex; justify-content: space-between; align-items: center; }
+/* the logo is as high as the title (its font size * its line height of 1.5) */
+.ow-logo img { height: 1.875rem; display: block; }
+.ow-header:has(.ow-title-big) .ow-logo img { height: 3rem; }
+/* "More examples": at the right of the title row, as high as the title */
+.st-key-more_examples { width: 100%; }
+.st-key-more_examples [data-testid="stButton"] { display: flex; justify-content: flex-end; }
+div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples) { margin-bottom: 0.7rem; }
+div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples)
+  div[data-testid="stElementContainer"]:has(.ow-title) { margin-bottom: 0; }
+/* (Streamlit would make the title's box shorter than the title) */
+div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples)
+  [data-testid="stElementContainer"]:has(.ow-title),
+div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples)
+  [data-testid="stElementContainer"]:has(.ow-title) [data-testid="stMarkdown"],
+div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples)
+  [data-testid="stElementContainer"]:has(.ow-title) [data-testid="stMarkdown"] > div {
+  min-height: 1.875rem; height: auto; }
+.ow-header, [data-testid="stMarkdownContainer"]:has(.ow-header) { margin-bottom: 0; }
+.st-key-more_examples button { min-height: 1.875rem; padding: 0 0.9rem; }
 .ow-title span { font-size: 0.75rem; font-weight: 400; margin-left: 0.6rem;
                  opacity: 0.9; }
+.stApp p.ow-title-big { font-size: 2rem; }
+.ow-title-big span { font-size: 0.9rem; }
+.ow-splash-hint { font-size: 0.85rem !important; margin: 0.2rem 0 0.5rem 0 !important; }
+/* A splash scene: its picture and name, with the (invisible) button over all of it */
+div[class*="st-key-splash_card_"] { flex: 0 0 auto !important; position: relative;
+  border: 1px solid rgba(44,67,16,0.35); border-radius: 0.6rem;
+  overflow: hidden; background: rgba(255,255,255,0.22); cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s; }
+div[class*="st-key-splash_card_"] > div { flex: 0 0 auto; }
+/* (Streamlit would shrink the name's box to less than its text, clipping it) */
+div[class*="st-key-splash_card_"] [data-testid="stMarkdown"],
+div[class*="st-key-splash_card_"] [data-testid="stMarkdown"] > div {
+  min-height: 2.6rem; height: auto; }
+div[class*="st-key-splash_card_"]:hover { transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+div[class*="st-key-splash_card_"] p { padding: 0 0.4rem 0.3rem 0.4rem; font-weight: 600;
+  overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-height: 1.3; }
+div[class*="st-key-splash_btn_"] { position: absolute; inset: 0; z-index: 2;
+  width: 100% !important; height: 100% !important; }
+div[class*="st-key-splash_btn_"] [data-testid="stButton"],
+div[class*="st-key-splash_btn_"] [data-testid="stTooltipHoverTarget"],
+div[class*="st-key-splash_btn_"] [data-testid="stTooltipIcon"],
+div[class*="st-key-splash_btn_"] [data-testid="stTooltipIcon"] > div,
+div[class*="st-key-splash_btn_"] [data-testid="stButton"] div {
+  width: 100%; height: 100%; }
+div[class*="st-key-splash_btn_"] button { width: 100%; height: 100%; opacity: 0;
+  cursor: pointer; }
 .stApp p, .stApp label, .stApp [data-testid="stWidgetLabel"] p {
   font-size: 0.78rem; margin: 0; color: var(--ow-text); }
 /* The specific cells pickers are only shown when "Specific cells..." is chosen in
@@ -119,11 +167,6 @@ div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-        '<p class="ow-title">OpenWorm 3D Viewer<span> 3D viewer'
-        " for <i>C. elegans</i> models and datasets</span></p>",
-        unsafe_allow_html=True,
-    )
     st.markdown(
         '<div class="ow-footer">OpenWorm 3D Viewer %s &middot; pyvista v%s, '
         "stpyvista v%s, streamlit v%s</div>"
@@ -205,14 +248,14 @@ def build_scene(
 
 
 color_overlay = ColorOverlay()
-COLOUR_OPTIONS = color_overlay.options  # the first is the default in the UI
+COLOR_OPTIONS = color_overlay.options  # the first is the default in the UI
 
 # Background of the 3D view; green matches the page (OpenWorm green)
 BACKGROUNDS = {"Green": "#9dbe45", "White": "white", "Black": "black"}
 
 only_show = []
 highlight = []
-colour_option = COLOUR_OPTIONS[0]
+color_option = COLOR_OPTIONS[0]
 background_option = "Green"
 spacing = DEFAULT_SPACING
 # model key -> shown; the checkboxes below override these defaults in Streamlit mode
@@ -246,6 +289,7 @@ REFRESH_GUARD_JS = """
   const refreshButton = (form) =>
     [...form.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Refresh');
 
+  let lastScene = null;
   let applied = null;  // the state of the form that is displayed
   let pending = null;
   let timer = null;
@@ -253,6 +297,14 @@ REFRESH_GUARD_JS = """
     const form = document.querySelector('[data-testid="stForm"]');
     const button = form && refreshButton(form);
     if (!button) return;
+    // a scene was chosen from the splash: its options are what is displayed
+    const marker = document.querySelector('[data-ow-scene]');
+    const scene = marker ? marker.dataset.owScene : null;
+    if (scene !== lastScene) {
+      lastScene = scene;
+      applied = null;
+      pending = null;
+    }
     const state = formState(form);
     if (applied === null) {
       // the first state: once the form has stopped changing while loading
@@ -289,11 +341,167 @@ REFRESH_GUARD_JS = """
 """
 
 
+SPLASH_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "images", "splash.json"
+)
+SPLASH_COLUMNS = 6  # scenes per row (a layout for six; more wrap onto more rows)
+SPLASH_THUMB_WIDTH = 480  # pixels: the pictures are scaled down for the browser
+
+
+LOGO_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "images", "OpenWormLogo.png"
+)
+LOGO_URL = "https://openworm.org"
+
+
+@st.cache_data(show_spinner=False)
+def _logo_data_uri(modified):
+    import base64
+
+    with open(LOGO_FILE, "rb") as f:
+        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+
+
+def logo_html():
+    """The OpenWorm logo as a link to openworm.org (opened in a new tab); empty if
+    there is no logo file"""
+    if not os.path.isfile(LOGO_FILE):
+        return ""
+    return (
+        '<a class="ow-logo" href="%s" target="_blank" rel="noopener noreferrer" '
+        'title="OpenWorm"><img src="%s" alt="OpenWorm"></a>'
+        % (LOGO_URL, _logo_data_uri(os.path.getmtime(LOGO_FILE)))
+    )
+
+
+def end_splash():
+    """Callback: the splash is not shown any more, e.g. when Refresh is pressed"""
+    st.session_state.splash_open = False
+
+
+def open_splash():
+    """Callback of "More examples": show the splash scenes again (and, as the options
+    are not those of a scene any more, no options in the URL)"""
+    st.session_state.splash_open = True
+    st.query_params.clear()
+
+
+def choose_scene(scene):
+    """Callback of a splash scene: load it, i.e. set the controls to its options (in
+    the next run) and put them in the URL"""
+    st.session_state.splash_open = False
+    st.session_state.pending_scene = scene
+    st.session_state.scene_token = st.session_state.get("scene_token", 0) + 1
+    st.query_params.clear()
+    st.query_params.update(
+        {k: str(v) for k, v in scene.items() if k not in ("image", "text")}
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _thumbnail(path, modified):
+    """The JPEG bytes of a scene's picture, scaled down (modified: for the cache)"""
+    import io
+
+    from PIL import Image
+
+    with Image.open(path) as im:
+        im = im.convert("RGB")
+        # cropped to 16:9 (from the middle), so all the scenes are the same size
+        w, h = im.size
+        if w * 9 > h * 16:
+            x = (w - h * 16 // 9) // 2
+            im = im.crop((x, 0, w - x, h))
+        else:
+            y = (h - w * 9 // 16) // 2
+            im = im.crop((0, y, w, h - y))
+        im.thumbnail((SPLASH_THUMB_WIDTH, SPLASH_THUMB_WIDTH))
+        out = io.BytesIO()
+        im.save(out, "JPEG", quality=85)
+        return out.getvalue()
+
+
+def make_splash(active):
+    """The function that shows the splash scenes of images/splash.json (read each
+    time it is shown): a picture each, with the options of a scene (the same names as
+    the URL's: model3d, show, highlight, color, background, spacing) and the "text"
+    to show under the picture (default: the names of its models); clicking one
+    loads it."""
+
+    def show():
+        import json
+
+        try:
+            with open(SPLASH_FILE) as f:
+                scenes = json.load(f)["options"]
+        except (OSError, ValueError, KeyError) as e:
+            print_("No splash scenes (%s: %s)" % (SPLASH_FILE, e))
+            return
+        st.markdown(
+            '<p class="ow-splash-hint">Choose a scene to start with, or set the '
+            "options below and press Refresh.</p>",
+            unsafe_allow_html=True,
+        )
+        labels = {m.key: m.label for m in models3d.models}
+        for row in range(0, len(scenes), SPLASH_COLUMNS):
+            cols = st.columns(SPLASH_COLUMNS)
+            for n, scene in enumerate(scenes[row : row + SPLASH_COLUMNS]):
+                i = row + n
+                path = os.path.join(
+                    os.path.dirname(SPLASH_FILE), scene.get("image", "")
+                )
+                title = scene.get("text") or ", ".join(
+                    labels.get(k.strip(), k.strip())
+                    for k in str(scene.get("model3d", "")).split(",")
+                )
+                with cols[n].container(key="splash_card_%d" % i):
+                    if os.path.isfile(path):
+                        st.image(
+                            _thumbnail(path, os.path.getmtime(path)), width="stretch"
+                        )
+                    st.markdown(title)
+                    st.button(
+                        title,
+                        key="splash_btn_%d" % i,
+                        help=title,  # (all of it, if it was cut short)
+                        on_click=choose_scene,
+                        args=(scene,),
+                    )
+
+    return show
+
+
 def panel_title(text):
     st.markdown('<p class="ow-panel-title">%s</p>' % text, unsafe_allow_html=True)
 
 
+# The first visit (no options in the URL): the title is bigger, with the splash scenes
+# to choose from, until one is chosen (or Refresh is pressed)
+if st_mode and "splash_open" not in st.session_state:
+    st.session_state.splash_open = not st.query_params  # (the first visit)
+splash_active = st_mode and st.session_state.splash_open
+
 if st_mode:
+    header = (
+        '<div class="ow-header"><p class="ow-title%s">OpenWorm 3D Viewer<span> 3D '
+        "viewer for <i>C. elegans</i> models and datasets</span></p>%s</div>"
+    )
+    if splash_active:
+        # the logo, which links to openworm.org
+        st.markdown(header % (" ow-title-big", logo_html()), unsafe_allow_html=True)
+    else:
+        # a button to go back to the splash scenes, where the logo was
+        title_col, more_col = st.columns([5, 1], vertical_alignment="center")
+        title_col.markdown(header % ("", ""), unsafe_allow_html=True)
+        more_col.button(
+            "More examples",
+            key="more_examples",
+            type="primary",
+            on_click=open_splash,
+            help="Go back to the example scenes to choose from",
+        )
+    if splash_active:
+        make_splash(True)()
     groups, all_cell_ids = get_cell_groups(NEUROML_FILE)
     # the same groups as for showing, but none highlighted by default ("All cells"
     # highlighted would fade nothing)
@@ -303,47 +511,38 @@ if st_mode:
     # Refresh button (in Display Options) is pressed, not on every click
     # Options given in the URL (e.g. ?model3d=sibernetic) replace the defaults of
     # the widgets when the page is first opened
-    qp = st.query_params.get_all
-    url_problems = []
-    initial_models, unknown_models = models3d.from_query(qp("model3d"))
-    if unknown_models:
-        url_problems.append(
-            "unknown model3d %s (use: %s)"
-            % (", ".join(unknown_models), ", ".join(models3d.keys))
+    def options_of(get):
+        return urlparams.Options(
+            get,
+            models3d,
+            list(groups),
+            HIGHLIGHT_OPTIONS,
+            all_cell_ids,
+            COLOR_OPTIONS,
+            BACKGROUNDS,
+            DEFAULT_SPACING,
         )
-    init_show, init_show_cells, p = urlparams.cell_choice(
-        qp("show"), list(groups), all_cell_ids
-    )
-    url_problems += ["show: " + m for m in p]
-    init_hl, init_hl_cells, p = urlparams.cell_choice(
-        qp("highlight"), HIGHLIGHT_OPTIONS, all_cell_ids
-    )
-    url_problems += ["highlight: " + m for m in p]
-    init_show = init_show or "Only neurons"
-    init_hl = init_hl or "None"
-    init_colours = (
-        urlparams.single(qp("colours"), "colours", COLOUR_OPTIONS, True, url_problems)
-        or COLOUR_OPTIONS[0]
-    )
-    init_background = (
-        urlparams.single(
-            qp("background"), "background", list(BACKGROUNDS), False, url_problems
-        )
-        or "Green"
-    )
-    init_spacing = urlparams.number(
-        qp("spacing"), "spacing", 0, DEFAULT_SPACING, url_problems
-    )
-    if init_spacing is None:
-        init_spacing = DEFAULT_SPACING
-    if url_problems:
+
+    init = options_of(st.query_params.get_all)
+    if init.problems:
         st.warning(
-            "Not all of the options in the URL were used: " + "; ".join(url_problems)
+            "Not all of the options in the URL were used: " + "; ".join(init.problems)
         )
+
+    # A splash scene was clicked (see the top of the page): set the controls to
+    # its options, before the widgets are made
+    scene = st.session_state.pop("pending_scene", None)
+    if scene:
+        chosen = options_of(lambda name: [str(scene[name])] if name in scene else [])
+        st.session_state.update(chosen.widget_values(models3d))
+        init = chosen
+    # (the widgets get their first values from the session state, not defaults)
+    for key, value in init.widget_values(models3d).items():
+        st.session_state.setdefault(key, value)
 
     with st.form("controls", border=False):
         # Control panels, in the order they are intended to be used:
-        # what to show (Canvas), which cells (Subsets), colours (Overlay), Settings
+        # what to show (Canvas), which cells (Subsets), colors (Overlay), Settings
         p_canvas, p_subsets, p_overlay, p_settings = st.columns([3, 3, 2, 2])
 
         with p_canvas.container(border=True):
@@ -353,7 +552,6 @@ if st_mode:
             selected_models = {
                 m.key: checkbox_cols[n % 2].checkbox(
                     m.label,
-                    value=initial_models[m.key],
                     key="cb_" + m.key,
                     help=m.description,
                 )
@@ -367,7 +565,6 @@ if st_mode:
             group = show_col.selectbox(
                 "Cells to show",
                 list(groups.keys()),
-                index=list(groups).index(init_show),
                 key="sel_cell_group",
                 label_visibility="collapsed",
                 help="Which cells to show",
@@ -377,7 +574,6 @@ if st_mode:
             chosen_cells = st.multiselect(
                 "Specific cells to show",
                 all_cell_ids,
-                default=init_show_cells or ["AVAL", "AVAR"],
                 key="sel_cells",
                 label_visibility="collapsed",
             )
@@ -388,7 +584,6 @@ if st_mode:
             hl_group = hl_col.selectbox(
                 "Cells to highlight",
                 HIGHLIGHT_OPTIONS,
-                index=HIGHLIGHT_OPTIONS.index(init_hl),
                 key="sel_highlight_group",
                 label_visibility="collapsed",
                 help="Cells to show as normal, with all the other shown cells "
@@ -397,7 +592,6 @@ if st_mode:
             chosen_hl_cells = st.multiselect(
                 "Specific cells to highlight",
                 all_cell_ids,
-                default=init_hl_cells,
                 key="sel_hl_cells",
                 placeholder="Choose cells to highlight",
                 label_visibility="collapsed",
@@ -409,13 +603,12 @@ if st_mode:
 
         with p_overlay.container(border=True):
             panel_title("Color Overlay")
-            colour_option = st.selectbox(
-                "Colours to use",
-                COLOUR_OPTIONS,
-                index=COLOUR_OPTIONS.index(init_colours),
-                key="sel_colours",
+            color_option = st.selectbox(
+                "Colors to use",
+                COLOR_OPTIONS,
+                key="sel_colors",
                 label_visibility="collapsed",
-                help="Colours to use:\n"
+                help="Colors to use:\n"
                 + "\n".join(
                     f"- {o}: {d}" for o, d in ColorOverlay.DESCRIPTIONS.items()
                 ),
@@ -427,10 +620,9 @@ if st_mode:
                 st.segmented_control(
                     "Background",
                     list(BACKGROUNDS),
-                    default=init_background,
                     key="sel_background",
                     label_visibility="collapsed",
-                    help="Background colour of the 3D view",
+                    help="Background color of the 3D view",
                 )
                 or "Green"  # nothing selected (clicking the active option deselects it)
             )
@@ -440,13 +632,13 @@ if st_mode:
                 "Worm spacing",
                 min_value=0,
                 max_value=DEFAULT_SPACING,
-                value=int(init_spacing),
                 key="sel_spacing",
                 label_visibility="collapsed",
                 help="Distance between the worms: lower values move them closer together",
             )
             st.form_submit_button(
                 "Refresh",
+                on_click=end_splash,
                 type="primary",
                 width="stretch",
                 help="Show the worms with the options chosen in all the panels. They "
@@ -455,9 +647,17 @@ if st_mode:
 
 if st_mode:
     st.html(REFRESH_GUARD_JS, unsafe_allow_javascript=True)
+    if "scene_token" in st.session_state:  # (for the guard: see above)
+        st.markdown(
+            '<div data-ow-scene="%d" hidden></div>' % st.session_state.scene_token,
+            unsafe_allow_html=True,
+        )
+    if splash_active:
+        # The first visit: wait for a scene to be chosen (or Refresh pressed)
+        st.stop()
 
 # Empty dict -> each model uses its own colors
-colors = color_overlay.get_colors(colour_option, all_cell_ids if st_mode else [])
+colors = color_overlay.get_colors(color_option, all_cell_ids if st_mode else [])
 
 selection = dict(
     selected=selected_models,
@@ -492,7 +692,7 @@ if st_mode:
         view_key += "_%d_%d_%s_%s" % (
             hash(tuple(only_show)),
             hash(tuple(highlight)),
-            colour_option,
+            color_option,
             background_option,
         )
         view_key += "_sp%d" % spacing

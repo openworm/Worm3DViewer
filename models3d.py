@@ -39,6 +39,8 @@ NEUROML_FULL = "neuroml_full"
 NEUROML_SOMAS = "neuroml_somas"
 NEUROML_CANONICAL = "canonical"
 
+WITVLIET_ADULT = "witvliet2021adult"
+
 # The NeuroML models: model key -> the mesh cache, the NeuroML file and the
 # scale/rotation (degrees) that its meshes are built with (see
 # neuromlmodel.build_neuroml_meshes()). `python models3d.py -cache` builds the caches.
@@ -230,7 +232,7 @@ class Models3D:
                 add=_add_sibernetic_model,
             ),
             Model3D(
-                key="stl",
+                key=WITVLIET_ADULT,
                 label="Witvliet et al. 2021 adult cells",
                 description="The cells of the nerve ring region of an adult, from "
                 "the electron microscopy of Witvliet et al. (2021)",

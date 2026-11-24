@@ -1,7 +1,7 @@
 """Reading the options that can be given in the URL of the web viewer, e.g.
 
-    ?model3d=virtualworm,stl&show=Sensory neurons&highlight=AVAL,AVAR
-    &colours=random&background=white&spacing=30
+    ?model3d=virtualworm,witvliet2021adult&show=Sensory neurons&highlight=AVAL,AVAR
+    &color=random&background=white&spacing=30
 
 so that a URL can return to a scene. These functions turn the query parameters
 into the initial values of the widgets; they return a list of messages for
@@ -11,8 +11,8 @@ values that were not understood (which are then ignored).
   show        a group of cells (as in the Show box, e.g. "Only muscles") or cell
               names, e.g. AVAL,AVAR (as "Specific cells...")
   highlight   as show, or "None"
-  colours     a color overlay (see coloroverlay.py): the start of its name, e.g.
-              random, wormatlas, default
+  color       a color overlay (see coloroverlay.py): the start of its name, e.g.
+              random, wormatlas, default ("colour" is also accepted)
   background  a background (e.g. white)
   spacing     the spacing of the worms: a number
 """
@@ -93,3 +93,73 @@ def number(values, name, low, high, problems=None):
         if problems is not None:
             problems.append("%s '%s' is not a number" % (name, values[-1]))
         return None
+
+
+class Options:
+    """The initial values of the controls, from the options of a URL or a splash
+    scene: models (dict model key -> shown), show/highlight (a group name) and
+    show_cells/highlight_cells (cell names for "Specific cells..."), colors,
+    background and spacing. problems: messages for what was not understood."""
+
+    def __init__(
+        self,
+        get,
+        models3d,
+        groups,
+        highlight_options,
+        cell_ids,
+        color_options,
+        backgrounds,
+        max_spacing,
+    ):
+        """get(name) -> the list of values of the parameter `name` (can be empty)"""
+        self.problems = []
+        self.models, unknown = models3d.from_query(get("model3d"))
+        if unknown:
+            self.problems.append(
+                "unknown model3d %s (use: %s)"
+                % (", ".join(unknown), ", ".join(models3d.keys))
+            )
+        self.show, self.show_cells, p = cell_choice(get("show"), groups, cell_ids)
+        self.problems += ["show: " + m for m in p]
+        self.highlight, self.highlight_cells, p = cell_choice(
+            get("highlight"), highlight_options, cell_ids
+        )
+        self.problems += ["highlight: " + m for m in p]
+        self.show = self.show or "Only neurons"
+        self.highlight = self.highlight or "None"
+        self.colors = (
+            single(
+                get("color") or get("colors") or get("colour") or get("colours"),
+                "color",
+                color_options,
+                True,
+                self.problems,
+            )
+            or color_options[0]
+        )
+        self.background = (
+            single(
+                get("background"), "background", list(backgrounds), False, self.problems
+            )
+            or "Green"
+        )
+        spacing = number(get("spacing"), "spacing", 0, max_spacing, self.problems)
+        self.spacing = int(max_spacing if spacing is None else spacing)
+
+    def widget_values(self, models3d):
+        """dict of widget key -> value, to set the controls to these options"""
+        values = {"cb_" + k: v for k, v in self.models.items()}
+        values.update(
+            sel_cell_group=self.show,
+            sel_cells=self.show_cells or DEFAULT_SPECIFIC_CELLS,
+            sel_highlight_group=self.highlight,
+            sel_hl_cells=self.highlight_cells,
+            sel_colors=self.colors,
+            sel_background=self.background,
+            sel_spacing=self.spacing,
+        )
+        return values
+
+
+DEFAULT_SPECIFIC_CELLS = ["AVBL", "AVBR"]

@@ -36,7 +36,7 @@ Each model can also be shown on its own in a desktop window:
 
 ```bash
 python neuromlmodel.py          # a NeuroML network (default c302_D_Full.net.nml)
-python neuropal.py              # NeuroPAL coloured cells (somas only)
+python neuropal.py              # NeuroPAL colored cells (somas only)
 python virtualworm.py           # VirtualWorm muscle + neuron meshes
 python SiberneticReplay.py Sibernetic/impermeability.txt   # Sibernetic replay
 python load.py                  # all of the above in one scene
@@ -52,15 +52,15 @@ The controls are in four panels above the 3D view, in the order they are intende
 |---|---|
 | **3D Canvas** | Which models to show: VirtualWorm, NeuroML models, Sibernetic model, etc. |
 | **Select Subsets** | Which cells to show: all cells, only muscles, only neurons, sensory neurons, interneurons, motor neurons, pharyngeal neurons, or "Specific cells..." for a list picked by name. The same cells are shown in each worm |
-| **Color Overlay** | **Default** uses the colours of each loaded model; **Random** gives each named cell a random colour (repeatable for a given name, and the same in every model) |
-| **Display Options** | Background colour of the 3D view (green, white or black) and the spacing between the worms (0 to 50: lower values move them closer together) |
+| **Color Overlay** | **Default** uses the colors of each loaded model; **Random** gives each named cell a random color (repeatable for a given name, and the same in every model) |
+| **Display Options** | Background color of the 3D view (green, white or black) and the spacing between the worms (0 to 50: lower values move them closer together) |
 
 Changing any control rebuilds the scene. A "Worms are loading..." spinner is shown meanwhile.
 
 Notes:
 
 - Cell names are the standard names, e.g. `AVAL` for a neuron or `MDL01` for a body wall muscle.
-- Subsets apply to the NeuroML and VirtualWorm models. For the Sibernetic model only the muscles have names, so only muscle names select or colour particles there (see below). Selecting a group with no muscles, such as the neurons, shows no Sibernetic particles.
+- Subsets apply to the NeuroML and VirtualWorm models. For the Sibernetic model only the muscles have names, so only muscle names select or color particles there (see below). Selecting a group with no muscles, such as the neurons, shows no Sibernetic particles.
 - The camera position is not kept when the scene is rebuilt.
 - Large selections (all of the neurons, or the whole NeuroML model) take a few seconds to build and send tens of MB to the browser.
 
@@ -69,7 +69,7 @@ Notes:
 Each data source has its own module with an `add_*(plotter, ...)` function that adds geometry to a shared `pyvista.Plotter`, and an `if __name__ == "__main__"` block so it can be run alone. They all take the same two optional arguments:
 
 - `only_show`: a list of cell names to show; all other cells are omitted. An empty list (the default) shows everything.
-- `colors`: a dict of cell name to colour (a name, or an rgb tuple) used instead of the default colour. Cells not in the dict (or an empty dict) keep their default colour.
+- `colors`: a dict of cell name to color (a name, or an rgb tuple) used instead of the default color. Cells not in the dict (or an empty dict) keep their default color.
 
 | File | Contents |
 |---|---|
@@ -77,7 +77,7 @@ Each data source has its own module with an `add_*(plotter, ...)` function that 
 | `load.py` | The same models combined in a desktop (non-Streamlit) window |
 | `neuromlmodel.py` | `load_neuroml_model(file)` reads a NeuroML file; `add_neuroml_model(plotter, nml_doc, ...)` adds its cells. The geometry of each cell is built once and kept on the loaded document, so adding it again is fast |
 | `virtualworm.py` | `load_virtualworm()` reads the muscle and neuron meshes (one coordinate system); `add_virtualworm()` adds them |
-| `urlparams.py` | Reads the options given in the URL (`?model3d=...&show=...&highlight=...&colours=...&background=...&spacing=...`) as the initial values of the controls |
+| `urlparams.py` | Reads the options given in the URL (`?model3d=...&show=...&highlight=...&color=...&background=...&spacing=...`) as the initial values of the controls |
 | `SiberneticReplay.py` | `add_sibernetic_model()`: a time series replay of Sibernetic output with play, rewind and fast forward buttons, a time slider, toggles for the particle types and charts of the muscle activation and body curvature |
 | `SibSimulation.py` | The data layer for the replay (no GUI): reads `position_buffer.txt` and/or `report.json` from a Sibernetic run directory |
 | `sibernetic_muscles.py` | Maps the named Sibernetic muscles to particles (see below) |
@@ -91,7 +91,7 @@ Things worth knowing:
 - **stpyvista cannot be imported outside Streamlit**, so scripts that run it standalone must not import it.
 - **VirtualWorm meshes** (`bwm.obj`, about 25MB, and `neurons.obj`, about 100MB, both in the repo) are read by a small parser in `virtualworm.py` instead of trimesh. With trimesh 5, every object in `neurons.obj` came back with the name of the first, so the cell names were lost. A cell can be made of several objects (e.g. `MVL22_81`), and `only_show` and `colors` match the cell name without the number.
 - **NeuroML coordinates** are remapped to the viewer's frame as `(x, z, -y)` and scaled by `factor`.
-- **Theme.** `.streamlit/config.toml` sets the colour of selected controls to the dark green of the page. The rest of the look (green page, compact panels) is CSS in `app.py`.
+- **Theme.** `.streamlit/config.toml` sets the color of selected controls to the dark green of the page. The rest of the look (green page, compact panels) is CSS in `app.py`.
 - **Positioning.** Models are placed side by side using the `translate=` / `offset3d=` arguments, scaled by the spacing setting.
 
 ### Sibernetic muscles

@@ -1,0 +1,51 @@
+{
+    "options": [
+        {
+            "text": "VirtualWorm cells",
+            "image": "virtualworm.png",
+            "model3d": "virtualworm",
+            "background": "green"
+        },
+        {
+            "text": "Canonical atlas showing NeuroPAL",
+            "image": "neuropal.png",
+            "model3d": "canonical",
+            "background": "black"
+        },
+        {
+            "text": "Witvliet 2021 adult nerve ring",
+            "image": "witvliet2021adult.png",
+            "model3d": "witvliet2021adult",
+            "background": "white",
+            "color": "Random color per cell"
+        },
+        {
+            "text": "Pharyngeal neurons",
+            "image": "pharynx.png",
+            "model3d": "virtualworm,neuroml_full,canonical",
+            "background": "green",
+            "show": "Only neurons",
+            "color": "WormAtlas cell colors",
+            "highlight": "Pharyngeal neurons",
+            "spacing": "19"
+        },
+        {
+            "text": "VirtualWorm, NeuroML & Sibernetic muscles",
+            "image": "muscles.png",
+            "model3d": "virtualworm,neuroml_somas,sibernetic",
+            "background": "white",
+            "show": "All cells",
+            "color": "WormAtlas + Sibernetic colors"
+        },
+        {
+            "text": "Motorneurons of the head",
+            "image": "ring.png",
+            "model3d": "virtualworm,neuroml_full,witvliet2021adult",
+            "background": "white",
+            "show": "Motorneurons",
+            "highlight": "RMDL,RMDR,RMDDL,RMDDR,RMDVL,RMDVR,RMED",
+            "color": "Random color per cell",
+            "spacing": "14"
+        },
+    ]
+}
