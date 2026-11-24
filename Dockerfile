@@ -26,6 +26,8 @@ RUN ./download_witvliet2021.sh
 
 COPY *.py *.stl *.obj ./
 COPY .streamlit/* ./.streamlit/
+# The splash screen: its scenes (splash.json) and their pictures, and the logo
+COPY images/splash.json images/*.png ./images/
 COPY Sibernetic/* ./Sibernetic/
 COPY NeuroML2/* ./NeuroML2/
 COPY NeuroML2/cells/* ./NeuroML2/cells/
