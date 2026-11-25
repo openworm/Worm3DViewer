@@ -656,10 +656,16 @@ def panel_title(text):
     st.markdown('<p class="ow-panel-title">%s</p>' % text, unsafe_allow_html=True)
 
 
+# The fast 3D view (see fastview.py), for now only with ?view=fast in the URL. It is
+# kept for the session, as choosing a splash scene replaces the URL's options.
+if st_mode and st.query_params.get("view") == "fast":
+    st.session_state.fast_view = True
+fast_view = st_mode and st.session_state.get("fast_view", False)
+
 # The first visit (no options in the URL): the title is bigger, with the splash scenes
 # to choose from, until one is chosen (or Refresh is pressed)
 if st_mode and "splash_open" not in st.session_state:
-    st.session_state.splash_open = not st.query_params  # (the first visit)
+    st.session_state.splash_open = not set(st.query_params) - {"view"}  # (1st visit)
 splash_active = st_mode and st.session_state.splash_open
 
 if st_mode:
@@ -887,8 +893,11 @@ if st_mode:
     st.html(summary + SUMMARY_JS, unsafe_allow_javascript=True)
 
     try:
-        with st.spinner("Loading worm models...", show_time=True):
-            plotter = build_scene(**selection)
+        if fast_view:
+            plotter = None  # (the fast view needs no scene: see below)
+        else:
+            with st.spinner("Loading worm models...", show_time=True):
+                plotter = build_scene(**selection)
     except CacheError as e:
         st.error(str(e))
         st.stop()
@@ -899,7 +908,27 @@ print_("Created the scene...")
 
 if st_mode:
     ##
-    if True:
+    if fast_view:
+        # Only the options are sent: the browser has the models (see fastview.py)
+        import fastview
+
+        try:
+            fastview.show(
+                models3d,
+                SceneOptions(
+                    selected=selected_models,
+                    spacing=spacing,
+                    only_show=list(only_show),
+                    highlight=list(highlight),
+                    colors=colors,
+                ),
+                BACKGROUNDS[background_option],
+            )
+        except FileNotFoundError:
+            st.error(
+                "The fast view's files are missing: run python fastview.py -export"
+            )
+    else:
         print_("Pass a key to avoid re-rendering at each page change")
         from stpyvista import stpyvista
 

@@ -28,15 +28,17 @@ COPY *.py *.stl *.obj ./
 COPY .streamlit/* ./.streamlit/
 # The splash screen: its scenes (splash.json) and their pictures, and the logo
 COPY images/splash.json images/*.png ./images/
+COPY fastview_web/*.html fastview_web/*.js ./fastview_web/
 COPY Sibernetic/* ./Sibernetic/
 COPY NeuroML2/* ./NeuroML2/
 COPY NeuroML2/cells/* ./NeuroML2/cells/
 
 # Build the mesh caches (in ./cache) that the app reads: it does not build meshes
-# itself (see meshcache.py)
+# itself (see meshcache.py). Then export the models for the fast view (fastview.py)
 RUN python models3d.py -cache \
     && python virtualworm.py -cache \
-    && python witvliet2021.py -cache
+    && python witvliet2021.py -cache \
+    && python fastview.py -export
 
 EXPOSE 8080
 
