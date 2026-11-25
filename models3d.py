@@ -16,14 +16,17 @@ and of the models in the scene.
 """
 
 import functools
+import re
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+import pyvista as pv
+
 from neuromlmodel import add_neuroml_meshes, load_neuroml_cache, save_neuroml_cache
 from SiberneticReplay import add_sibernetic_model
-from virtualworm import add_virtualworm, load_virtualworm
-from witvliet2021 import add_stl_neurons, load_stl_neurons
+from virtualworm import add_virtualworm, get_color_for_object, load_virtualworm
+from witvliet2021 import add_stl_neurons, default_color, load_stl_neurons
 
 # Default distance between the worms (the app's slider can lower it)
 DEFAULT_SPACING = 50
@@ -202,9 +205,7 @@ class Models3D:
             Model3D(
                 key="virtualworm",
                 label="VirtualWorm",
-                description="The VirtualWorm 3D model: the neurons and the body wall "
-                "muscles (which cover the body). Use the cell selection to show "
-                "just the neurons or just the muscles",
+                description="The [VirtualWorm Project](http://caltech.wormbase.org/virtualworm) produced 3D [Blender](http://www.blender.org) files for all cells in the adult hermaphrodite _C. elegans_. The version of this model used here includes the neurons and the body wall muscles (which cover the body), and a small number of support cells.",
                 load=lambda: load_virtualworm(use_cache=True),
                 add=_add_virtualworm,
                 default=True,
@@ -212,37 +213,35 @@ class Models3D:
             Model3D(
                 key=NEUROML_FULL,
                 label="NeuroML model (c302)",
-                description="The cells of the c302 NeuroML model",
+                description="A conversion to [NeuroML](https://neuroml.org/) of the [VirtualWorm](http://caltech.wormbase.org/virtualworm) model. See [Blender2NeuroML](https://github.com/openworm/Blender2NeuroML) for more information. These are multicompartmental cell models (spherical soma, cylindrical segments for dendrites/axons). These cells have been integrated into the [c302](https://github.com/openworm/c302) framework, specifically in [parameter set: D, configuration: Full](https://github.com/openworm/c302/blob/master/examples/c302_D_Full.net.nml).",
                 load=lambda: _load_neuroml(NEUROML_FULL),
                 add=_neuroml_adder(NEUROML_FULL),
             ),
             Model3D(
                 key=NEUROML_SOMAS,
                 label="NeuroML model (somas only)",
-                description="The c302 NeuroML model with each cell just a soma, "
-                "at the same positions as the cells of the c302 model",
+                description="A [c302](https://github.com/openworm/c302) based [NeuroML](https://neuroml.org/) model with only a soma (spherical) for each cell, at the same positions as the somas of the full cells (i.e. with dendrites and axons removed).",
                 load=lambda: _load_neuroml(NEUROML_SOMAS),
                 add=_neuroml_adder(NEUROML_SOMAS),
             ),
             Model3D(
                 key="sibernetic",
                 label="Sibernetic model",
-                description="The Sibernetic simulation of the worm body. Cells can "
-                "be selected and colored for the muscles, but not highlighted",
+                description="The [Sibernetic](https://github.com/openworm/Sibernetic) simulation of the worm body. Only contains the body wall muscles. These can be selected and colored for the muscles, but not highlighted",
                 add=_add_sibernetic_model,
             ),
             Model3D(
                 key=WITVLIET_ADULT,
                 label="Witvliet et al. 2021 adult cells",
                 description="The cells of the nerve ring region of an adult, from "
-                "the electron microscopy of Witvliet et al. (2021)",
+                "the electron microscopy of [Witvliet et al. 2021](https://www.nature.com/articles/s41586-021-03778-8)",
                 load=lambda: load_stl_neurons(use_cache=True),
                 add=_add_stl_neurons,
             ),
             Model3D(
                 key=NEUROML_CANONICAL,
                 label="Canonical atlas (Skuhersky et al. 2022)",
-                description='"Canonical" neuron positions, as calculated in: Toward a more accurate 3D atlas of C. elegans neurons (Skuhersky et al. 2022).',
+                description='"Canonical" neuron positions, as calculated in: Toward a more accurate 3D atlas of C. elegans neurons ([Skuhersky et al. 2022](https://link.springer.com/article/10.1186/s12859-022-04738-3)).',
                 load=lambda: _load_neuroml(NEUROML_CANONICAL),
                 add=_neuroml_adder(NEUROML_CANONICAL, CANONICAL_TRANSLATE),
             ),
@@ -270,6 +269,53 @@ class Models3D:
         if not [k for k in requested if k not in unknown]:
             return self.defaults(), unknown
         return {m.key: m.key in requested for m in self.models}, unknown
+
+    def shown_cells(self, key, only_show=()):
+        """The (base) names of the cells of the model that are shown for this
+        selection (only_show: cell names; empty for all), in the order of the data.
+        None if the model has no named cells (e.g. Sibernetic). A cell made of
+        several objects (MVL22_81) counts once, as its name without the number."""
+        data = self.get_data(key)
+        if data is None:
+            return None
+        if isinstance(data, dict):
+            names = list(data)
+        else:
+            items = data[0] if isinstance(data, tuple) else data
+            names = [n for n, _ in items]
+        cells = list(dict.fromkeys(re.sub(r"_\d+$", "", n) for n in names))
+        if only_show:
+            cells = [c for c in cells if c in only_show]
+        return cells
+
+    def cell_colors(self, key, cells, colors=None):
+        """dict of cell name -> the color (CSS, e.g. "#ff3300") that the cell has in
+        the scene of the model `key`: its color in `colors` (the Color Overlay's,
+        by cell name) if there is one, else the model's own default color. Cells
+        of a model without cells (Sibernetic) are not in it."""
+        colors = colors or {}
+        data = self.get_data(key)
+        if data is None:
+            return {}
+        own = {}
+        if isinstance(data, tuple):  # NeuroML: the default color of each cell
+            items, info = data
+            own = {n: i["color"] for (n, _), i in zip(items, info)}
+        out = {}
+        for cell in cells:
+            if cell in colors:
+                color = colors[cell]
+            elif cell in own:
+                color = own[cell]
+            elif key == WITVLIET_ADULT:
+                color = default_color(cell)
+            else:
+                color = get_color_for_object(cell)
+            try:
+                out[cell] = pv.Color(color).hex_rgb
+            except Exception:
+                out[cell] = str(color)
+        return out
 
     def get_data(self, key):
         """The (cached) data of a model, for its add function; None if it has no

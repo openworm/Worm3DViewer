@@ -10,6 +10,7 @@
             "text": "Canonical atlas showing NeuroPAL",
             "image": "neuropal.png",
             "model3d": "canonical",
+            "color": "Default (3D models' own colors)",
             "background": "black"
         },
         {
