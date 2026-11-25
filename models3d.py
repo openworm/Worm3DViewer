@@ -125,16 +125,33 @@ class Model3D:
     add: Callable[[Any, Any, SceneOptions], None]  # (plotter, data, options)
     load: Optional[Callable[[], Any]] = None  # the data for add; None if none
     default: bool = False  # shown at first
+    # where it is moved along x, for these options (the add function moves it
+    # there; the fast view moves the model's exported meshes the same way)
+    x: Callable[[SceneOptions], float] = lambda o: 0.0
 
 
 # -- the models: where they are placed, and adding them to a plotter ------------
+
+
+def _x_virtualworm(o):
+    return -o.spacing
+
+
+def _x_stl(o):
+    # to the left of the VirtualWorm worms
+    return -(0.8 + o.is_shown("virtualworm")) * o.spacing
+
+
+def _x_neuroml(key=None):
+    """x of the NeuroML model `key`, or for no key of the model after them all"""
+    return lambda o: o.neuroml_x(key)
 
 
 def _add_virtualworm(plotter, data, o):
     add_virtualworm(
         plotter,
         data,
-        translate=(-o.spacing, 0, 0),
+        translate=(_x_virtualworm(o), 0, 0),
         only_show=o.only_show,
         highlight=o.highlight,
         colors=o.colors,
@@ -142,8 +159,7 @@ def _add_virtualworm(plotter, data, o):
 
 
 def _add_stl_neurons(plotter, data, o):
-    # to the left of the VirtualWorm worms
-    x = -(0.8 + o.is_shown("virtualworm")) * o.spacing
+    x = _x_stl(o)
     add_stl_neurons(
         plotter,
         data,
@@ -209,6 +225,7 @@ class Models3D:
                 load=lambda: load_virtualworm(use_cache=True),
                 add=_add_virtualworm,
                 default=True,
+                x=_x_virtualworm,
             ),
             Model3D(
                 key=NEUROML_FULL,
@@ -216,6 +233,7 @@ class Models3D:
                 description="A conversion to [NeuroML](https://neuroml.org/) of the [VirtualWorm](http://caltech.wormbase.org/virtualworm) model. See [Blender2NeuroML](https://github.com/openworm/Blender2NeuroML) for more information. These are multicompartmental cell models (spherical soma, cylindrical segments for dendrites/axons). These cells have been integrated into the [c302](https://github.com/openworm/c302) framework, specifically in [parameter set: D, configuration: Full](https://github.com/openworm/c302/blob/master/examples/c302_D_Full.net.nml).",
                 load=lambda: _load_neuroml(NEUROML_FULL),
                 add=_neuroml_adder(NEUROML_FULL),
+                x=_x_neuroml(NEUROML_FULL),
             ),
             Model3D(
                 key=NEUROML_SOMAS,
@@ -223,12 +241,14 @@ class Models3D:
                 description="A [c302](https://github.com/openworm/c302) based [NeuroML](https://neuroml.org/) model with only a soma (spherical) for each cell, at the same positions as the somas of the full cells (i.e. with dendrites and axons removed).",
                 load=lambda: _load_neuroml(NEUROML_SOMAS),
                 add=_neuroml_adder(NEUROML_SOMAS),
+                x=_x_neuroml(NEUROML_SOMAS),
             ),
             Model3D(
                 key="sibernetic",
                 label="Sibernetic model",
                 description="The [Sibernetic](https://github.com/openworm/Sibernetic) simulation of the worm body ([Palyanov et al. 2018](https://royalsocietypublishing.org/rstb/article/373/1758/20170376/42176)). Only contains the body wall muscles. These can be selected and colored for the muscles, but not highlighted",
                 add=_add_sibernetic_model,
+                x=_x_neuroml(),
             ),
             Model3D(
                 key=WITVLIET_ADULT,
@@ -237,6 +257,7 @@ class Models3D:
                 "the electron microscopy of [Witvliet et al. 2021](https://www.nature.com/articles/s41586-021-03778-8)",
                 load=lambda: load_stl_neurons(use_cache=True),
                 add=_add_stl_neurons,
+                x=_x_stl,
             ),
             Model3D(
                 key=NEUROML_CANONICAL,
@@ -244,6 +265,7 @@ class Models3D:
                 description='"Canonical" neuron positions, as calculated in: Toward a more accurate 3D atlas of C. elegans neurons ([Skuhersky et al. 2022](https://link.springer.com/article/10.1186/s12859-022-04738-3)).',
                 load=lambda: _load_neuroml(NEUROML_CANONICAL),
                 add=_neuroml_adder(NEUROML_CANONICAL, CANONICAL_TRANSLATE),
+                x=_x_neuroml(NEUROML_CANONICAL),
             ),
         ]
         self._by_key = {m.key: m for m in self.models}

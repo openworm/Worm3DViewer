@@ -25,3 +25,6 @@ python load.py -nogui
 python models3d.py -cache
 python virtualworm.py -cache
 python witvliet2021.py -cache
+
+# Export the models for the fast 3D view (fastview.py), from those caches
+python fastview.py -export
