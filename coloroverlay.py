@@ -25,10 +25,10 @@ class ColorOverlay:
 
     # The options, with a description of each. The first is the default one
     DESCRIPTIONS = {
-        WORMATLAS: "The standard WormAtlas colors by cell type",
-        WORMATLAS_SIB: "The standard WormAtlas colors by cell type, with muscle colors according to Sibernetic (Palyanov et al. 2018, Fig 2)",
-        DEFAULT: "The inbuilt colors of each loaded model's cells",
-        RANDOM: "A random color for each named cell",
+        WORMATLAS: 'The standard <a href="https://www.wormatlas.org/colorcode.htm">WormAtlas colors for each cell type</a>',
+        WORMATLAS_SIB: 'The standard <a href="https://www.wormatlas.org/colorcode.htm">WormAtlas colors for each cell type</a>, with muscle colors according to Sibernetic (Palyanov et al. 2018, Fig 2)',
+        DEFAULT: "Uses the native colors given to each cell by each individual model.",
+        RANDOM: "A random color is assigned to each named cell, and used consistently across all model visualizations",
     }
 
     @property
@@ -36,15 +36,18 @@ class ColorOverlay:
         """The names of the options, the default one first"""
         return list(self.DESCRIPTIONS)
 
-    def get_colors(self, option, names):
+    def get_colors(self, option, names, seed=0):
         """A dict of cell name -> color for the given option, for the cells
         `names`. Empty (the models use their own colors) for the default option.
+
+        seed: for the random option, which set of random colors (0 is the first;
+        another gives a new set, which is again the same for every call with it).
 
         Raises ValueError for an unknown option."""
         if option == self.DEFAULT:
             return {}
         if option == self.RANDOM:
-            return self._random_colors(names)
+            return self._random_colors(names, seed)
         if option == self.WORMATLAS:
             return self._wormatlas_colors(names)
         if option == self.WORMATLAS_SIB:
@@ -72,16 +75,26 @@ class ColorOverlay:
             "Unknown color option %r: use one of %s" % (option, self.options)
         )
 
-    @staticmethod
-    def _random_colors(names):
-        """A random (but repeatable for a given name) rgb color per name"""
-        return {
-            name: tuple(
-                float(v)
-                for v in np.random.default_rng(zlib.crc32(name.encode())).random(3)
-            )
-            for name in names
-        }
+    # A random color is redrawn if it is closer than this to white (the distance in
+    # rgb, which is at most sqrt(3)), as it would not show on a white background
+    MIN_DISTANCE_FROM_WHITE = 0.5
+
+    @classmethod
+    def _random_color(cls, name, seed=0):
+        """A random rgb color for a name (and seed) that is always the same for them,
+        and not too close to white"""
+        key = zlib.crc32(name.encode())
+        rng = np.random.default_rng(key if seed == 0 else [key, seed])
+        while True:
+            color = rng.random(3)
+            if np.linalg.norm(1.0 - color) >= cls.MIN_DISTANCE_FROM_WHITE:
+                return tuple(float(v) for v in color)
+
+    @classmethod
+    def _random_colors(cls, names, seed=0):
+        """A random (but repeatable for a given name and seed) rgb color per name,
+        none of them too close to white"""
+        return {name: cls._random_color(name, seed) for name in names}
 
     @staticmethod
     def _wormatlas_colors(names):

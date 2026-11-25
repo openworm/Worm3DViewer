@@ -3,17 +3,19 @@ from meshcache import CacheError
 from models3d import DEFAULT_SPACING, Models3D, SceneOptions
 
 import os
+import re
 import platform
 import shutil
 import subprocess
 import sys
 
+import cect.Cells as cect_cells
 
 import pyvista as pv
 
 import urlparams
 
-version = "v0.4.0"
+version = "v0.4.1"
 
 stpyvista_version = "0.1.4"
 
@@ -92,6 +94,25 @@ div[data-testid="stHorizontalBlock"]:has(.st-key-more_examples)
   min-height: 1.875rem; height: auto; }
 .ow-header, [data-testid="stMarkdownContainer"]:has(.ow-header) { margin-bottom: 0; }
 .st-key-more_examples button { min-height: 1.875rem; padding: 0 0.9rem; }
+/* The "What am I seeing?" button (beside Refresh) and the summary it shows/hides, in
+   the browser: the page's class ow-summary-open is toggled by SUMMARY_JS */
+.ow-summary-toggle { width: 100%; min-height: 2.5rem; border-radius: 0.5rem;
+  border: 1px solid rgba(44,67,16,0.35); background: rgba(255,255,255,0.75);
+  color: var(--ow-text); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.ow-summary-toggle:hover { background: #fff; }
+.ow-summary-toggle .when-open, html.ow-summary-open .ow-summary-toggle .when-closed {
+  display: none; }
+html.ow-summary-open .ow-summary-toggle .when-open { display: inline; }
+.ow-summary { display: none; }
+html.ow-summary-open .ow-summary { display: block; padding: 0.6rem 0.9rem;
+  background: #fff; border: 1px solid rgba(44,67,16,0.35);
+  border-radius: 0.6rem; color: var(--ow-text); font-size: 0.78rem; line-height: 1.4; }
+.ow-summary p { margin: 0 0 0.35rem 0; font-size: 0.78rem; }
+.ow-summary .ow-summary-title { font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--ow-dark); }
+.ow-summary h5 { margin: 0.5rem 0 0.15rem 0; font-size: 0.82rem; color: var(--ow-dark); }
+.ow-summary .cells a { text-decoration: none; }
+.ow-summary .cells { max-height: 5.5rem; overflow-y: auto; }
 .ow-title span { font-size: 0.75rem; font-weight: 400; margin-left: 0.6rem;
                  opacity: 0.9; }
 .stApp p.ow-title-big { font-size: 2rem; }
@@ -132,6 +153,10 @@ div[data-testid="stLayoutWrapper"]:has(.st-key-sel_cell_group input[value="Speci
   + .st-key-sel_cells,
 div[data-testid="stLayoutWrapper"]:has(.st-key-sel_highlight_group input[value="Specific cells..."])
   + .st-key-sel_hl_cells { display: block; }
+/* "Shuffle colors" is only shown when the random colors are chosen */
+.st-key-sel_shuffle { display: none; }
+div[data-testid="stVerticalBlock"]:has(.st-key-sel_colors input[value="Random color per cell"])
+  > .st-key-sel_shuffle { display: block; }
 /* white text on the primary (dark green) buttons, e.g. Refresh */
 .stApp button[data-testid^="stBaseButton-primary"] p { color: #fff; }
 div[data-testid="stCheckbox"] { min-height: 0; }
@@ -174,10 +199,6 @@ div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"]
         unsafe_allow_html=True,
     )
 
-# Distance between the worms: DEFAULT_SPACING, which the slider in Streamlit mode can lower
-
-NEUROML_FILE = "NeuroML2/c302_D_Full.net.nml"
-
 
 # The meshes of the models are read from the mesh caches (made by running the
 # loaders with -cache, see meshcache.py; a CacheError is raised if they are
@@ -192,8 +213,8 @@ def _cached(func):
 models3d = Models3D(cache=_cached)
 
 
-def get_cell_groups(nml_file):
-    """Groups of cell names (present in the NeuroML file) to select from.
+def get_cell_groups():
+    """Groups of cell names to select from.
     An empty list means "all cells"."""
 
     import cect.Cells as cells
@@ -207,6 +228,11 @@ def get_cell_groups(nml_file):
         "All cells": [],
         "Only muscles": [i for i in ids if cells.is_known_muscle(i)],
         "Only neurons": [i for i in ids if cells.is_any_neuron(i)],
+        "All except neurons & muscles": [
+            i
+            for i in ids
+            if not cells.is_any_neuron(i) and not cells.is_known_muscle(i)
+        ],
         "Sensory neurons": present(cells.SENSORY_NEURONS_COOK),
         "Interneurons": present(cells.INTERNEURONS_COOK),
         "Motor neurons": present(cells.MOTORNEURONS_COOK),
@@ -375,8 +401,18 @@ def logo_html():
 
 
 def end_splash():
-    """Callback: the splash is not shown any more, e.g. when Refresh is pressed"""
+    """Callback of Refresh: the splash is not shown any more. And if "Shuffle colors"
+    was ticked (for the random colors) a new set of random colors is used from now
+    on, and the box is unticked."""
     st.session_state.splash_open = False
+    if st.session_state.get("sel_shuffle"):
+        if st.session_state.get("sel_colors") == ColorOverlay.RANDOM:
+            import random
+
+            st.session_state.color_seed = random.randrange(1, 2**31)
+        st.session_state.sel_shuffle = False
+        # what is displayed is what is in the form again (see the guard in the page)
+        st.session_state.scene_token = st.session_state.get("scene_token", 0) + 1
 
 
 def open_splash():
@@ -443,6 +479,7 @@ def make_splash(active):
             unsafe_allow_html=True,
         )
         labels = {m.key: m.label for m in models3d.models}
+        descriptions = {m.key: m.description for m in models3d.models}
         for row in range(0, len(scenes), SPLASH_COLUMNS):
             cols = st.columns(SPLASH_COLUMNS)
             for n, scene in enumerate(scenes[row : row + SPLASH_COLUMNS]):
@@ -454,6 +491,14 @@ def make_splash(active):
                     labels.get(k.strip(), k.strip())
                     for k in str(scene.get("model3d", "")).split(",")
                 )
+                # the hover text: the description of each model of the scene
+                hover = "\n\n".join(
+                    "**%s**: %s" % (labels[k], descriptions[k])
+                    for k in (
+                        k.strip() for k in str(scene.get("model3d", "")).split(",")
+                    )
+                    if k in descriptions
+                )
                 with cols[n].container(key="splash_card_%d" % i):
                     if os.path.isfile(path):
                         st.image(
@@ -463,12 +508,148 @@ def make_splash(active):
                     st.button(
                         title,
                         key="splash_btn_%d" % i,
-                        help=title,  # (all of it, if it was cut short)
+                        help=hover or title,
                         on_click=choose_scene,
                         args=(scene,),
                     )
 
     return show
+
+
+SUMMARY_JS = """
+<script>
+(() => {
+  if (window.__owSummaryToggle) return;  // the page's script persists over reruns
+  window.__owSummaryToggle = true;
+  // the state is a class of the page, so it stays when the controls are redisplayed
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ow-summary-toggle')) return;
+    e.preventDefault();
+    document.documentElement.classList.toggle('ow-summary-open');
+  }, true);
+})();
+</script>
+"""
+
+MAX_LISTED_CELLS = 1100  # (all the cells of any of the models fit)
+
+
+CELL_LINK_BASE = "https://openworm.org/ConnectomeToolbox/Cells/index.html#"
+
+
+def cell_link(cell, color):
+    """HTML for a cell's name as a link to its page of the Connectome Toolbox, opened
+    in a new tab, in `color` (that of the cell in the scene). Just the name if it is
+    not a standard cell."""
+    from html import escape
+
+    try:
+        link = cect_cells.get_cell_internal_link(
+            cell, html=True, use_color=False, text=cell
+        )
+    except Exception:  # not a cell that the toolbox knows
+        return escape(cell)
+    link = link.replace("<a ", '<a style="color:%s" ' % escape(color), 1)
+    # (the toolbox's links are relative to its own pages)
+    link = link.replace("../Cells/index.html#", CELL_LINK_BASE)
+    return link.replace("<a ", '<a target="_blank" rel="noopener noreferrer" ', 1)
+
+
+def markdown_to_html(text):
+    """The little markdown of the descriptions of the models ([text](url) links and
+    _italics_) as HTML, with everything else escaped. Links open in a new tab."""
+    from html import escape
+
+    html = escape(text, quote=False)
+    html = re.sub(
+        r"\[([^\]]+)\]\(([^)\s]+)\)",
+        r'<a href="\2" target="_blank" rel="noopener noreferrer">\1</a>',
+        html,
+    )
+    return re.sub(r"(?<!\w)_([^_]+)_(?!\w)", r"<i>\1</i>", html)
+
+
+def cell_color_fallback(cell, colors):
+    """The color of a cell that is in none of the models shown (e.g. a highlighted
+    cell that they do not have): its overlay color, else its WormAtlas one"""
+    from virtualworm import get_color_for_object
+
+    return pv.Color(colors.get(cell) or get_color_for_object(cell)).hex_rgb
+
+
+def html_links_to_markdown(text):
+    """<a href="url">text</a> -> [text](url), for the places that show markdown"""
+    return re.sub(r'<a href="([^"]*)">(.*?)</a>', r"[\2](\1)", text)
+
+
+def scene_summary_html(selected, only_show, highlight, settings, colors=None):
+    """HTML describing the scene: the description of each model shown and the list of
+    the cells shown in it, and the settings. It is made on each run and hidden until
+    the "What am I seeing?" button is clicked."""
+    from html import escape
+
+    shown = [m for m in models3d.models if selected.get(m.key)]
+    parts = [
+        '<div class="ow-summary"><p class="ow-summary-title">What am I seeing?</p>'
+    ]
+    if not shown:
+        parts.append("<p>No 3D models are selected.</p>")
+    for m in shown:
+        parts.append(
+            "<h5>%s</h5><p>%s</p>" % (escape(m.label), markdown_to_html(m.description))
+        )
+        cells = models3d.shown_cells(m.key, only_show)
+        if cells is None:
+            parts.append(
+                "<p><i>The particles of the simulated body. Only its muscles have "
+                "names, so only muscles can be selected.</i></p>"
+            )
+        elif not cells:
+            parts.append("<p><i>None of the selected cells are in this model.</i></p>")
+        else:
+            cell_color = models3d.cell_colors(m.key, cells[:MAX_LISTED_CELLS], colors)
+            parts.append(
+                '<p class="cells"><b>%d cells shown:</b> %s</p>'
+                % (
+                    len(cells),
+                    # (the links are HTML already: only the cell names are escaped)
+                    ", ".join(
+                        cell_link(c, cell_color[c]) for c in cells[:MAX_LISTED_CELLS]
+                    ),
+                )
+            )
+    shown_in = "all cells" if not only_show else "%d chosen cells" % len(only_show)
+    parts.append("<br/><p>Showing %s (%s).</p>" % (shown_in, escape(settings["show"])))
+    if highlight:
+        # each in its color in the scene, which is that of the first model shown that
+        # has the cell
+        hl_color = {}
+        for m in shown:
+            in_model = models3d.shown_cells(m.key, highlight) or []
+            for cell, color in models3d.cell_colors(m.key, in_model, colors).items():
+                hl_color.setdefault(cell, color)
+        links = ", ".join(
+            cell_link(c, hl_color.get(c) or cell_color_fallback(c, colors))
+            for c in highlight[:MAX_LISTED_CELLS]
+        )
+        parts.append(
+            '<br/><p class="cells"><b>Highlighting %d cells (%s)</b>, the other cells are '
+            "transparent: %s</p>"
+            % (len(highlight), escape(settings["highlight"]), links)
+        )
+    color = settings["color"]
+    description = ColorOverlay.DESCRIPTIONS.get(color, "")
+    parts.append(
+        "<p>Colors: <b>%s</b>%s</p></div>"
+        % (
+            escape(color),
+            # (the descriptions are our own HTML: links are opened in a new tab)
+            ": " + description.replace("<a ", '<a target="_blank" rel="noopener" ')
+            if description
+            else "",
+        )
+    )
+    return "".join(parts)
 
 
 def panel_title(text):
@@ -502,7 +683,7 @@ if st_mode:
         )
     if splash_active:
         make_splash(True)()
-    groups, all_cell_ids = get_cell_groups(NEUROML_FILE)
+    groups, all_cell_ids = get_cell_groups()
     # the same groups as for showing, but none highlighted by default ("All cells"
     # highlighted would fade nothing)
     HIGHLIGHT_OPTIONS = ["None"] + [g for g in groups if g != "All cells"]
@@ -610,8 +791,14 @@ if st_mode:
                 label_visibility="collapsed",
                 help="Colors to use:\n"
                 + "\n".join(
-                    f"- {o}: {d}" for o, d in ColorOverlay.DESCRIPTIONS.items()
+                    f"- {o}: {html_links_to_markdown(d)}"
+                    for o, d in ColorOverlay.DESCRIPTIONS.items()
                 ),
+            )
+            st.checkbox(
+                "Shuffle colors",
+                key="sel_shuffle",
+                help="Use a new set of random colors when Refresh is pressed",
             )
 
         with p_settings.container(border=True):
@@ -636,13 +823,21 @@ if st_mode:
                 label_visibility="collapsed",
                 help="Distance between the worms: lower values move them closer together",
             )
-            st.form_submit_button(
+            refresh_col, summary_col = st.columns(2)
+            refresh_col.form_submit_button(
                 "Refresh",
                 on_click=end_splash,
                 type="primary",
                 width="stretch",
                 help="Show the worms with the options chosen in all the panels. They "
                 "are only applied when this is pressed, so several can be changed first.",
+            )
+            # (not a Streamlit button: it only shows/hides the summary in the
+            # browser, with no rerun, so the 3D view stays; see SUMMARY_JS)
+            summary_col.html(
+                '<button type="button" class="ow-summary-toggle">'
+                '<span class="when-closed">What am I seeing?</span>'
+                '<span class="when-open">Close</span></button>'
             )
 
 if st_mode:
@@ -657,7 +852,10 @@ if st_mode:
         st.stop()
 
 # Empty dict -> each model uses its own colors
-colors = color_overlay.get_colors(color_option, all_cell_ids if st_mode else [])
+color_seed = st.session_state.get("color_seed", 0) if st_mode else 0
+colors = color_overlay.get_colors(
+    color_option, all_cell_ids if st_mode else [], color_seed
+)
 
 selection = dict(
     selected=selected_models,
@@ -669,6 +867,25 @@ selection = dict(
 )
 
 if st_mode:
+    try:
+        summary = scene_summary_html(
+            selected_models,
+            only_show,
+            highlight,
+            dict(
+                show=group,
+                highlight=hl_group,
+                color=color_option,
+                background=background_option,
+                spacing=spacing,
+            ),
+            colors,
+        )
+    except CacheError:
+        summary = ""  # (the error is shown below)
+    # Shown or hidden by the "What am I seeing?" button, in the browser
+    st.html(summary + SUMMARY_JS, unsafe_allow_javascript=True)
+
     try:
         with st.spinner("Loading worm models...", show_time=True):
             plotter = build_scene(**selection)
@@ -695,7 +912,7 @@ if st_mode:
             color_option,
             background_option,
         )
-        view_key += "_sp%d" % spacing
+        view_key += "_sp%d_cs%d" % (spacing, color_seed)
 
         with st.spinner(
             "Displaying worm models (slow first time a model is loaded)...",

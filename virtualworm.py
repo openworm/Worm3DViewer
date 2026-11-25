@@ -1,12 +1,13 @@
 import numpy as np
 import pyvista as pv
 
-from cect.Cells import is_known_cell, cell_notes
+from cect.Cells import is_known_cell, cell_notes, get_standard_color
 
 from meshcache import load_meshes, save_meshes
 
 import re
 import sys
+import zlib
 
 BODY_WALL_MUSCLE_OBJ_FILE = "bwm.obj"
 NEURONS_OBJ_FILE = "neurons.obj"
@@ -58,12 +59,16 @@ def standardise_name(name):
 
 
 def get_color_for_object(name):
-    """Pick a display color for a named object: body wall muscles
-    (name starting with "mu_bod") are green; everything else gets a
-    random color."""
-    if name.startswith("M"):
-        return "green"
-    return np.random.rand(3)
+    """The default display color of a named object: the standard WormAtlas color of
+    its cell (all the parts of a cell, e.g. ALNR_1, have it), from cect. For an
+    object that is not a cell that cect knows, a color that is the same on every
+    run."""
+    base = _base_name(name)
+    try:
+        return get_standard_color(base)
+    except Exception:
+        seed = zlib.crc32(("vw:" + base).encode())
+        return np.random.default_rng(seed).random(3)
 
 
 def _base_name(name):
