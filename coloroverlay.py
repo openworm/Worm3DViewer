@@ -26,7 +26,7 @@ class ColorOverlay:
     # The options, with a description of each. The first is the default one
     DESCRIPTIONS = {
         WORMATLAS: 'The standard <a href="https://www.wormatlas.org/colorcode.htm">WormAtlas colors for each cell type</a>',
-        WORMATLAS_SIB: 'The standard <a href="https://www.wormatlas.org/colorcode.htm">WormAtlas colors for each cell type</a>, with muscle colors according to Sibernetic (Palyanov et al. 2018, Fig 2)',
+        WORMATLAS_SIB: 'The standard <a href="https://www.wormatlas.org/colorcode.htm">WormAtlas colors for each cell type</a>, with muscle colors according to Sibernetic ([Palyanov et al. 2018](https://royalsocietypublishing.org/rstb/article/373/1758/20170376/42176), [Fig 2](https://royalsocietypublishing.org/view-large/figure/18263469/rstb20170376f02.tif))',
         DEFAULT: "Uses the native colors given to each cell by each individual model.",
         RANDOM: "A random color is assigned to each named cell, and used consistently across all model visualizations",
     }

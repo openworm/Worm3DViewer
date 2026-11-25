@@ -1,15 +1,15 @@
 # Worm3DViewer
 
-A 3D viewer for several _C. elegans_ models and datasets from the [OpenWorm](https://openworm.org) project, built with [PyVista](https://pyvista.org/) and deployed as a [Streamlit](https://streamlit.io/) web app. It is intended as a replacement for the OpenWorm Browser.
+A 3D viewer for several _C. elegans_ models and datasets which are being used in the [OpenWorm](https://openworm.org) project, built with [PyVista](https://pyvista.org/) and deployed as a [Streamlit](https://streamlit.io/) web app. It is intended as a replacement for the original [OpenWorm Browser](http://browser.openworm.org).
 
-**Work in progress!**
+**Work in progress!** Try it out, and let us know what you think!
 
-<p align="center"><img src="images/someworms.gif"/></p>
+<p align="center"><img src="images/Splash.png"/></p>
 
 It can show, side by side in one scene:
 
 - **VirtualWorm** meshes of the body wall muscles (`bwm.obj`) and the neurons (`neurons.obj`), in one coordinate system (the muscles cover the body; choose neurons or muscles with the cell selection)
-- **NeuroML** models of the worm: the c302 network (`NeuroML2/c302_D_Full.net.nml`) with morphologically detailed cells, the same network with just the cell somas (`c302_C2_Full.net.nml`), and the "canonical" positions of the neurons from Skuhersky et al. 2022 ("Toward a more accurate 3D atlas of C. elegans neurons") (`NeuroPAL_Canonical.net.nml`)
+- **NeuroML** models of the worm: the c302 network (`NeuroML2/c302_D_Full.net.nml`) with morphologically detailed cells, the same network with just the cell somas (`c302_C2_Full.net.nml`), and the "canonical" positions of the neurons from [Skuhersky et al. 2022 ("Toward a more accurate 3D atlas of C. elegans neurons")](https://link.springer.com/article/10.1186/s12859-022-04738-3) (`NeuroPAL_Canonical.net.nml`)
 - the 3D models of the cells of the nerve ring region of an adult, from the electron microscopy of [Witvliet et al. (2021)](https://zenodo.org/records/5637219) (STL files, downloaded, see below)
 - a **Sibernetic** simulation of the worm body: a replay of the particle positions (`Sibernetic/position_buffer.txt`)
 
@@ -19,7 +19,7 @@ Python 3.12 to 3.14 is tested (CI uses 3.12 and 3.14, the Docker image 3.13).
 
 ```bash
 pip install -r requirements.txt
-./test.sh                       # (or just the last three lines of it) downloads the Witvliet cells and builds the mesh caches
+./test.sh                       # (or just the commands below) downloads the Witvliet cells and builds the mesh caches
 streamlit run app.py            # the web viewer
 ```
 
@@ -61,41 +61,21 @@ Add `-nogui` to any of them to load everything without opening a window. This is
 
 ## The web viewer
 
-The first visit, with no options in the URL, shows a big title with some **example scenes** to choose from (the pictures and options are in `images/splash.json`). Clicking one sets the controls and shows it. Once a scene is shown, **More examples** (top right) goes back to them. The OpenWorm logo on the example screen links to [openworm.org](https://openworm.org).
+Start it with `streamlit run app.py` and have a look around: the first page shows some **example scenes**, and clicking one loads it. From there you can change things and press **Refresh**:
 
-The controls are in four panels above the 3D view, in the order they are intended to be used:
+- **3D Canvas**: which models to show. Several can be shown side by side.
+- **Select Subsets**: which cells to **show** (only neurons, only muscles, sensory neurons, specific cells, ...) and which to **highlight** (shown as normal, with the rest made transparent).
+- **Color Overlay**: color the cells by their WormAtlas cell types, randomly (there is a **Shuffle colors** option), or as each model does by default.
+- **Display Options**: the background color and the spacing between the worms.
 
-| Panel | Controls |
-|---|---|
-| **3D Canvas** | Which models to show: VirtualWorm, the NeuroML models, the Witvliet et al. 2021 cells, the Sibernetic model. Several can be shown at once, side by side |
-| **Select Subsets** | **Show**: which cells to show: all cells, only muscles, only neurons, sensory neurons, interneurons, motor neurons, pharyngeal neurons, or "Specific cells..." for a list picked by name. **Highlight**: the same choices (and "None"): the highlighted cells are shown as normal and all the other shown cells are made transparent. The same cells are shown in each worm |
-| **Color Overlay** | **WormAtlas cell colors** (the default) uses the standard WormAtlas colors by cell type, **WormAtlas + Sibernetic colors** also colors the muscles as in Sibernetic, **Default** uses the colors of each loaded model, and **Random** gives each named cell a random color (repeatable for a given name, never close to white, and the same in every model). With Random chosen, ticking **Shuffle colors** and pressing Refresh gives a new set of random colors (the box then unticks itself, and the new set stays until the next shuffle) |
-| **Display Options** | Background color of the 3D view (green, white or black), the spacing between the worms (0 to 50: lower values move them closer together), and the **Refresh** button |
+**What am I seeing?** describes the models that are shown and lists their cells (each one links to its page in the [Connectome Toolbox](https://openworm.org/ConnectomeToolbox/)), and **More examples** goes back to the example scenes. The pictures and options of the example scenes are in `images/splash.json`.
 
-The controls only take effect when **Refresh** is pressed, so several can be changed first. It is disabled until something has changed. A spinner is shown while the scene is built.
-
-The **What am I seeing?** button beside Refresh opens a summary between the controls and the 3D view: the description of each model shown, the list of the cells shown in it, and the settings (the button then says **Close**). It only shows or hides text made when the scene was built, so the 3D view stays as it is.
-
-### Options in the URL
-
-The options can be given in the URL, to return to a scene: for example
-
-`?model3d=virtualworm,witvliet2021adult&show=Sensory neurons&highlight=AVAL,AVAR&color=random&background=white&spacing=30`
-
-| Parameter | Value |
-|---|---|
-| `model3d` | Model keys (`virtualworm`, `neuroml_full`, `neuroml_somas`, `sibernetic`, `witvliet2021adult`, `canonical`), comma separated or repeated. Only these are shown |
-| `show`, `highlight` | A group (as in the boxes, e.g. `only muscles`) or cell names, e.g. `AVAL,AVAR` (for "Specific cells...") |
-| `color` | The start of a Color Overlay option: `wormatlas`, `wormatlas+sibernetic`, `default`, `random` (`colour` is also accepted) |
-| `background` | `green`, `white` or `black` |
-| `spacing` | A number from 0 to 50 |
-
-Values that are not understood are ignored, with a warning. Choosing an example scene puts its options in the URL. The URL is not updated when the controls are changed.
+A scene can also be linked to, as the options can be given in the URL, e.g. `?model3d=virtualworm,witvliet2021adult&show=Sensory neurons&color=random&background=white`. See `urlparams.py` for all of them. Choosing an example scene fills them in, but the URL is not updated when the controls are changed.
 
 Notes:
 
 - Cell names are the standard names, e.g. `AVAL` for a neuron or `MDL01` for a body wall muscle.
-- Subsets apply to all of the models. For the Sibernetic model only the muscles have names, so only muscle names select or color particles there (see below). Selecting a group with no muscles, such as the neurons, shows no Sibernetic particles, and highlighting is not supported there.
+- Subsets apply to all of the models. For the Sibernetic model only the muscles have names, so only muscle names select or color particles there (see below), and highlighting is not supported.
 - The camera position is not kept when the scene is rebuilt.
 - Large selections (all of the neurons, or the whole NeuroML model) take a few seconds to build and send tens of MB to the browser.
 
@@ -110,8 +90,8 @@ Each data source has its own module with an `add_*(plotter, ...)` function that 
 | File | Contents |
 |---|---|
 | `app.py` | The Streamlit app: the example scenes, the control panels, building the scene from the controls, and the page styling. The `-gui` argument runs the same scene in a desktop window instead |
-| `models3d.py` | The list of 3D models the app can show (`Models3D.models`): each one's key, checkbox label and description, how to load its cached data, and how to place and add it. The NeuroML models (file, scale, rotation, cache) are in `NEUROML_MODELS`. `python models3d.py -cache` builds their caches |
-| `coloroverlay.py` | The options of the Color Overlay panel: `ColorOverlay.get_colors(option, names)` returns the `colors` dict |
+| `models3d.py` | The list of 3D models the app can show (`Models3D.models`): each one's key, checkbox label and description (in markdown, shown in the app), how to load its cached data, and how to place and add it. The NeuroML models (file, scale, rotation, cache) are in `NEUROML_MODELS`. `python models3d.py -cache` builds their caches |
+| `coloroverlay.py` | The options of the Color Overlay panel: `ColorOverlay.get_colors(option, names, seed)` returns the `colors` dict |
 | `urlparams.py` | Reads the options given in the URL (and those of an example scene) as the initial values of the controls |
 | `meshcache.py` | The fast on-disk cache of named meshes (`save_meshes()`, `load_meshes()`) used by the loaders' `-cache` option |
 | `load.py` | The same models combined in a desktop (non-Streamlit) window |

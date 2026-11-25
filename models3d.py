@@ -227,7 +227,7 @@ class Models3D:
             Model3D(
                 key="sibernetic",
                 label="Sibernetic model",
-                description="The [Sibernetic](https://github.com/openworm/Sibernetic) simulation of the worm body. Only contains the body wall muscles. These can be selected and colored for the muscles, but not highlighted",
+                description="The [Sibernetic](https://github.com/openworm/Sibernetic) simulation of the worm body ([Palyanov et al. 2018](https://royalsocietypublishing.org/rstb/article/373/1758/20170376/42176)). Only contains the body wall muscles. These can be selected and colored for the muscles, but not highlighted",
                 add=_add_sibernetic_model,
             ),
             Model3D(
